@@ -73,8 +73,9 @@ async def create_initial_souls(
             souls.append(soul)
         return souls
 
-    except Exception:
-        # Fallback: generate deterministic souls
+    except Exception as e:
+        from rich.console import Console
+        Console().print(f"  [yellow]Brahma LLM unavailable ({type(e).__name__}), using deterministic creation[/yellow]")
         return _fallback_souls(count)
 
 

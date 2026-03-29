@@ -106,6 +106,12 @@ def _parse_soul_response(response_text: str) -> dict:
     }
 
 
+FALLBACK_MODELS: list[str] = [
+    "claude-haiku-4-5-20251001",
+    "claude-3-haiku-20240307",
+]
+
+
 async def decide(
     soul: SoulState,
     rendered_view: dict,
@@ -114,25 +120,95 @@ async def decide(
     """Ask a soul agent to decide its next action."""
     prompt = _build_soul_prompt(soul, rendered_view)
 
-    try:
-        response = await client.messages.create(
-            model=SOUL_MODEL,
-            max_tokens=300,
-            system=SOUL_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw_text = response.content[0].text
-        result = _parse_soul_response(raw_text)
-        result["raw"] = raw_text
-        return result
-    except Exception as e:
-        return {
-            "action": "neutral",
-            "target": None,
-            "reasoning": f"Soul was confused: {e}",
-            "dialogue": None,
-            "raw": str(e),
-        }
+    # Try primary model, then fallbacks
+    models_to_try = [SOUL_MODEL] + [m for m in FALLBACK_MODELS if m != SOUL_MODEL]
+    last_error = None
+
+    for model in models_to_try:
+        try:
+            response = await client.messages.create(
+                model=model,
+                max_tokens=300,
+                system=SOUL_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw_text = response.content[0].text
+            result = _parse_soul_response(raw_text)
+            result["raw"] = raw_text
+            return result
+        except anthropic.BadRequestError as e:
+            last_error = e
+            continue
+        except anthropic.AuthenticationError as e:
+            # No point retrying with different model — key is bad
+            last_error = e
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    # All models failed — use deterministic fallback
+    return _deterministic_decision(soul, rendered_view)
+
+
+def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
+    """Rule-based fallback when LLM is unavailable."""
+    import random
+
+    nearby = rendered_view.get("nearby_souls", [])
+    target = nearby[0]["name"] if nearby else None
+
+    # Personality-driven action selection based on desires and karma
+    if soul.karma > 20:
+        weights = {"cooperate": 4, "meditate": 3, "share": 3, "teach": 2, "create": 2, "trade": 1}
+    elif soul.karma < -20:
+        weights = {"deceive": 3, "steal": 3, "fight": 2, "hoard": 3, "trade": 1, "neutral": 1}
+    else:
+        weights = {"cooperate": 2, "trade": 2, "create": 2, "explore": 2, "meditate": 1, "fight": 1, "neutral": 1}
+
+    # Desire-based adjustments
+    for desire in soul.desires:
+        d = desire.lower()
+        if "knowledge" in d or "truth" in d:
+            weights["meditate"] = weights.get("meditate", 0) + 3
+            weights["teach"] = weights.get("teach", 0) + 2
+        elif "power" in d or "dominate" in d:
+            weights["fight"] = weights.get("fight", 0) + 3
+            weights["hoard"] = weights.get("hoard", 0) + 2
+        elif "love" in d or "protect" in d:
+            weights["cooperate"] = weights.get("cooperate", 0) + 3
+            weights["share"] = weights.get("share", 0) + 2
+        elif "wealth" in d or "legacy" in d:
+            weights["trade"] = weights.get("trade", 0) + 3
+            weights["create"] = weights.get("create", 0) + 2
+
+    # Relationship-driven adjustments
+    if target and nearby:
+        rel = rendered_view.get("relationships", {})
+        target_affinity = rel.get(target, 0)
+        if target_affinity > 5:
+            weights["cooperate"] = weights.get("cooperate", 0) + 3
+        elif target_affinity < -5:
+            weights["fight"] = weights.get("fight", 0) + 2
+
+    actions = list(weights.keys())
+    w = [weights[a] for a in actions]
+    chosen = random.choices(actions, weights=w, k=1)[0]
+
+    # Map "fight" to justified/unjustified
+    if chosen == "fight":
+        if soul.karma >= 0 and any("protect" in d.lower() for d in soul.desires):
+            chosen = "fight_justified"
+        else:
+            chosen = "fight_unjustified"
+
+    return {
+        "action": chosen,
+        "target": target,
+        "reasoning": f"[deterministic] Driven by desires: {', '.join(soul.desires[:2])}",
+        "dialogue": None,
+        "raw": "[fallback: LLM unavailable]",
+    }
 
 
 async def decide_batch(

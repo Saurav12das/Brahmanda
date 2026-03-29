@@ -10,8 +10,8 @@ from enum import Enum, IntEnum
 # API
 # ---------------------------------------------------------------------------
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
-SOUL_MODEL: str = "claude-sonnet-4-6"        # model for soul agent decisions
-TRINITY_MODEL: str = "claude-sonnet-4-6"     # model for trinity orchestrators
+SOUL_MODEL: str = "claude-haiku-4-5-20251001"  # model for soul agent decisions (fast + cheap)
+TRINITY_MODEL: str = "claude-haiku-4-5-20251001"  # model for trinity orchestrators
 MAX_CONCURRENT_SOULS: int = 10               # parallel API calls per tick
 
 # ---------------------------------------------------------------------------

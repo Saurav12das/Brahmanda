@@ -67,14 +67,36 @@ class KarmaEngine:
     def classify_action(self, raw_action: str) -> str:
         """Map a raw LLM action string to a known action type."""
         raw = raw_action.lower().strip()
-        for action_type in KARMA_ACTIONS:
-            if action_type in raw:
-                return action_type
-        # Handle fight variants
+
+        # Handle fight first (before the loop matches fight_justified/fight_unjustified)
         if "fight" in raw:
-            if "justified" in raw or "defend" in raw or "protect" in raw:
+            if any(w in raw for w in ("justified", "defend", "protect", "righteous", "duty")):
                 return "fight_justified"
             return "fight_unjustified"
+
+        # Exact match first
+        if raw in KARMA_ACTIONS:
+            return raw
+
+        # Synonym / fuzzy matching
+        SYNONYMS = {
+            "cooperate": ["cooperate", "collaborate", "work together", "help", "assist", "ally", "join"],
+            "trade": ["trade", "exchange", "barter", "deal", "negotiate"],
+            "create": ["create", "build", "craft", "construct", "invent", "make"],
+            "meditate": ["meditate", "reflect", "contemplate", "pray", "seek wisdom", "introspect"],
+            "share": ["share", "give", "donate", "offer", "gift", "distribute"],
+            "teach": ["teach", "instruct", "guide", "mentor", "educate", "enlighten"],
+            "deceive": ["deceive", "lie", "trick", "manipulate", "betray", "mislead", "cheat"],
+            "steal": ["steal", "rob", "take", "pilfer", "loot", "plunder"],
+            "hoard": ["hoard", "accumulate", "stockpile", "gather", "amass", "collect greedily"],
+            "explore": ["explore", "wander", "travel", "search", "discover", "venture", "move"],
+            "neutral": ["neutral", "observe", "wait", "rest", "nothing", "idle", "watch", "do nothing"],
+        }
+        for action_type, keywords in SYNONYMS.items():
+            for kw in keywords:
+                if kw in raw:
+                    return action_type
+
         return "neutral"
 
     def create_action_record(
