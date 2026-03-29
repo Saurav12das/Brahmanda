@@ -10,8 +10,6 @@ from __future__ import annotations
 import json
 import re
 
-import anthropic
-
 from brahmanda.config import (
     AVATAR_DEPLOY_THRESHOLD,
     TRINITY_MODEL,
@@ -20,6 +18,7 @@ from brahmanda.config import (
 )
 from brahmanda.db.models import Event, SoulState, _uid
 from brahmanda.engine.maya import Maya
+from brahmanda.llm import LLMClient
 
 
 VISHNU_SYSTEM = """\
@@ -45,7 +44,7 @@ Analyze the universe state and respond with ONLY valid JSON:
 class VishnuProtocol:
     """Monitors universe health and deploys avatars when needed."""
 
-    def __init__(self, client: anthropic.AsyncAnthropic) -> None:
+    def __init__(self, client: LLMClient) -> None:
         self.client = client
         self.avatars_deployed: int = 0
 
@@ -79,13 +78,13 @@ class VishnuProtocol:
             for lid, loka in snapshot.lokas.items():
                 state_summary += f"  {loka.name}: pop={len(loka.population)}, resources={loka.resources}, entropy={loka.entropy:.2f}\n"
 
-            response = await self.client.messages.create(
+            response = await self.client.generate(
                 model=TRINITY_MODEL,
-                max_tokens=500,
                 system=VISHNU_SYSTEM,
-                messages=[{"role": "user", "content": state_summary}],
+                prompt=state_summary,
+                max_tokens=500,
             )
-            raw = response.content[0].text
+            raw = response.text
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if not match:
                 return events

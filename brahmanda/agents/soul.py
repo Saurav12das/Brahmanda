@@ -14,6 +14,7 @@ import anthropic
 
 from brahmanda.config import MAX_CONCURRENT_SOULS, SOUL_ACTIONS, SOUL_MODEL
 from brahmanda.db.models import SoulState
+from brahmanda.llm import LLMClient
 
 
 SOUL_SYSTEM_PROMPT = """\
@@ -138,49 +139,28 @@ def _parse_soul_response(response_text: str) -> dict:
     }
 
 
-FALLBACK_MODELS: list[str] = [
-    "claude-haiku-4-5-20251001",
-    "claude-3-haiku-20240307",
-]
-
-
 async def decide(
     soul: SoulState,
     rendered_view: dict,
-    client: anthropic.AsyncAnthropic,
+    client: LLMClient,
 ) -> dict:
     """Ask a soul agent to decide its next action."""
     prompt = _build_soul_prompt(soul, rendered_view)
 
-    # Try primary model, then fallbacks
-    models_to_try = [SOUL_MODEL] + [m for m in FALLBACK_MODELS if m != SOUL_MODEL]
-    last_error = None
-
-    for model in models_to_try:
-        try:
-            response = await client.messages.create(
-                model=model,
-                max_tokens=300,
-                system=SOUL_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw_text = response.content[0].text
-            result = _parse_soul_response(raw_text)
-            result["raw"] = raw_text
-            return result
-        except anthropic.BadRequestError as e:
-            last_error = e
-            continue
-        except anthropic.AuthenticationError as e:
-            # No point retrying with different model — key is bad
-            last_error = e
-            break
-        except Exception as e:
-            last_error = e
-            continue
-
-    # All models failed — use deterministic fallback
-    return _deterministic_decision(soul, rendered_view)
+    try:
+        response = await client.generate(
+            model=SOUL_MODEL,
+            system=SOUL_SYSTEM_PROMPT,
+            prompt=prompt,
+            max_tokens=300,
+        )
+        raw_text = response.text
+        result = _parse_soul_response(raw_text)
+        result["raw"] = raw_text
+        return result
+    except Exception as e:
+        # LLM failed — use deterministic fallback
+        return _deterministic_decision(soul, rendered_view)
 
 
 def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
@@ -286,7 +266,7 @@ def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
 
 async def decide_batch(
     souls_and_views: list[tuple[SoulState, dict]],
-    client: anthropic.AsyncAnthropic,
+    client: LLMClient,
 ) -> dict[str, dict]:
     """Run soul decisions in parallel, respecting concurrency limit."""
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_SOULS)

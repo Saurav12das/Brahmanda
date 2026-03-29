@@ -4,8 +4,8 @@ This is the main simulation loop. One complete execution represents
 a single Mahayuga cycle: creation → sustenance → dissolution.
 
 Usage:
-    python -m brahmanda.main
-    ANTHROPIC_API_KEY=sk-... python -m brahmanda.main
+    BRAHMANDA_BACKEND=ollama python -m brahmanda.main     # local Qwen (free)
+    BRAHMANDA_BACKEND=claude python -m brahmanda.main     # Claude API
 """
 
 from __future__ import annotations
@@ -13,11 +13,11 @@ from __future__ import annotations
 import asyncio
 import sys
 
-import anthropic
 from rich.console import Console
 from rich.panel import Panel
 
-from brahmanda.config import ACTIVE_LOKAS, ANTHROPIC_API_KEY, INITIAL_SOUL_COUNT
+from brahmanda.config import ACTIVE_LOKAS, LLM_BACKEND, ANTHROPIC_API_KEY, INITIAL_SOUL_COUNT
+from brahmanda.llm import create_client
 from brahmanda.agents.asura import AsuraEngine
 from brahmanda.agents.deva import DevaCouncil
 from brahmanda.agents.soul import decide_batch
@@ -40,11 +40,12 @@ async def run_universe() -> None:
     # ---------------------------------------------------------------
     # Initialize the cosmic infrastructure
     # ---------------------------------------------------------------
-    if not ANTHROPIC_API_KEY:
-        console.print("[red]ANTHROPIC_API_KEY not set. Export it before running.[/red]")
+    if LLM_BACKEND == "claude" and not ANTHROPIC_API_KEY:
+        console.print("[red]ANTHROPIC_API_KEY not set. Export it or use BRAHMANDA_BACKEND=ollama[/red]")
         sys.exit(1)
 
-    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    console.print(f"  [dim]LLM Backend: {LLM_BACKEND.upper()}[/dim]")
+    client = create_client()
     maya = Maya()
     records = AkashicRecords()
     deva_council = DevaCouncil()

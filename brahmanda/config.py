@@ -7,12 +7,25 @@ from enum import Enum, IntEnum
 
 
 # ---------------------------------------------------------------------------
-# API
+# API / LLM Backend
 # ---------------------------------------------------------------------------
+# Backend: "claude" or "ollama"
+LLM_BACKEND: str = os.environ.get("BRAHMANDA_BACKEND", "ollama")
+
+# Claude settings
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
-SOUL_MODEL: str = "claude-haiku-4-5-20251001"  # model for soul agent decisions (fast + cheap)
-TRINITY_MODEL: str = "claude-haiku-4-5-20251001"  # model for trinity orchestrators
-MAX_CONCURRENT_SOULS: int = 10               # parallel API calls per tick
+CLAUDE_SOUL_MODEL: str = "claude-haiku-4-5-20251001"
+CLAUDE_TRINITY_MODEL: str = "claude-haiku-4-5-20251001"
+
+# Ollama settings
+OLLAMA_BASE_URL: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_SOUL_MODEL: str = os.environ.get("OLLAMA_SOUL_MODEL", "qwen2.5:14b")
+OLLAMA_TRINITY_MODEL: str = os.environ.get("OLLAMA_TRINITY_MODEL", "qwen2.5:14b")
+
+# Active model selection (resolved at import time)
+SOUL_MODEL: str = OLLAMA_SOUL_MODEL if LLM_BACKEND == "ollama" else CLAUDE_SOUL_MODEL
+TRINITY_MODEL: str = OLLAMA_TRINITY_MODEL if LLM_BACKEND == "ollama" else CLAUDE_TRINITY_MODEL
+MAX_CONCURRENT_SOULS: int = 3 if LLM_BACKEND == "ollama" else 10  # local models need lower concurrency
 
 # ---------------------------------------------------------------------------
 # Simulation

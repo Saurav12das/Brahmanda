@@ -11,11 +11,10 @@ import json
 import random
 import re
 
-import anthropic
-
 from brahmanda.config import DEFAULT_LOKA, INITIAL_SOUL_COUNT, TRINITY_MODEL, LokaID
 from brahmanda.db.models import Event, Klesha, SoulState, _uid
 from brahmanda.engine.maya import Maya
+from brahmanda.llm import LLMClient
 
 
 BRAHMA_SYSTEM = """\
@@ -43,23 +42,20 @@ Respond with ONLY a JSON array. No other text.
 
 
 async def create_initial_souls(
-    client: anthropic.AsyncAnthropic,
+    client: LLMClient,
     count: int = INITIAL_SOUL_COUNT,
 ) -> list[SoulState]:
     """Ask Brahma to generate the initial population."""
     try:
-        response = await client.messages.create(
+        response = await client.generate(
             model=TRINITY_MODEL,
-            max_tokens=2000,
             system=BRAHMA_SYSTEM,
-            messages=[{
-                "role": "user",
-                "content": f"Create {count} unique souls for the beginning of this universe. "
-                           f"Make them diverse — some virtuous, some ambitious, some dark, some curious. "
-                           f"They should feel like real people with conflicting motivations.",
-            }],
+            prompt=f"Create {count} unique souls for the beginning of this universe. "
+                   f"Make them diverse — some virtuous, some ambitious, some dark, some curious. "
+                   f"They should feel like real people with conflicting motivations.",
+            max_tokens=2000,
         )
-        raw = response.content[0].text
+        raw = response.text
         match = re.search(r'\[.*\]', raw, re.DOTALL)
         if match:
             soul_data = json.loads(match.group())
@@ -95,23 +91,20 @@ async def create_initial_souls(
 
 
 async def spawn_new_soul(
-    client: anthropic.AsyncAnthropic,
+    client: LLMClient,
     maya: Maya,
 ) -> SoulState | None:
     """Brahma creates a single new soul mid-simulation."""
     try:
         existing_names = [s.name for s in maya.souls.values()]
-        response = await client.messages.create(
+        response = await client.generate(
             model=TRINITY_MODEL,
-            max_tokens=400,
             system=BRAHMA_SYSTEM,
-            messages=[{
-                "role": "user",
-                "content": f"Create 1 new soul. The following names are already taken: {existing_names}. "
-                           f"Current epoch: {maya.yuga.value}. Make this soul fit the era.",
-            }],
+            prompt=f"Create 1 new soul. The following names are already taken: {existing_names}. "
+                   f"Current epoch: {maya.yuga.value}. Make this soul fit the era.",
+            max_tokens=400,
         )
-        raw = response.content[0].text
+        raw = response.text
         match = re.search(r'\{[^{}]*\}', raw, re.DOTALL)
         if match:
             sd = json.loads(match.group())
