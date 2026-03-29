@@ -56,10 +56,71 @@ class KarmaEngine:
         return DEFAULT_LOKA
 
     def rebirth(self, soul: SoulState) -> SoulState:
-        """Process samsara — soul dies and is reborn with karma carryover."""
+        """Process samsara — soul dies and is reborn with karma carryover + mutations.
+
+        Each rebirth introduces random mutations:
+        - Vices (klesha): small random drift, influenced by past-life karma
+        - Desires: chance to gain/lose/swap desires based on past-life experience
+        - Skills: chance to gain a new skill or lose one (knowledge isn't guaranteed)
+        This models spiritual evolution — souls can grow OR degrade across lives.
+        """
         new_loka = self.determine_rebirth_loka(soul)
-        # Karma partially carries over (70% retained across lives)
         carried_karma = int(soul.karma * 0.7)
+
+        # --- MUTATION: Vices ---
+        # Karma influences vice drift direction:
+        #   Positive karma → vices tend to decrease (spiritual growth)
+        #   Negative karma → vices tend to increase (deeper corruption)
+        karma_bias = -0.05 if soul.karma > 20 else 0.05 if soul.karma < -20 else 0.0
+
+        # Each vice mutates independently
+        k = soul.klesha
+        soul.klesha = type(k)(
+            kama=max(0.05, min(1.0, k.kama + random.uniform(-0.1, 0.1) + karma_bias)),
+            krodha=max(0.05, min(1.0, k.krodha + random.uniform(-0.1, 0.1) + karma_bias)),
+            lobha=max(0.05, min(1.0, k.lobha + random.uniform(-0.1, 0.1) + karma_bias)),
+            moha=max(0.05, min(1.0, k.moha + random.uniform(-0.1, 0.1) + karma_bias)),
+            ahamkara=max(0.05, min(1.0, k.ahamkara + random.uniform(-0.1, 0.1) + karma_bias)),
+        )
+
+        # --- MUTATION: Desires ---
+        # 30% chance to mutate a desire based on past-life actions
+        if random.random() < 0.3 and soul.desires:
+            _ALL_DESIRES = [
+                "seek knowledge", "accumulate power", "find love", "protect the weak",
+                "transcend suffering", "build legacy", "uncover truth", "dominate rivals",
+                "achieve immortality", "serve dharma", "explore the unknown", "create beauty",
+                "seek revenge", "hoard wealth", "indulge senses", "escape this world",
+                "find meaning", "destroy enemies", "attain peace", "gain followers",
+            ]
+            mutation_type = random.choice(["swap", "add", "intensify"])
+            if mutation_type == "swap" and len(soul.desires) > 0:
+                # Replace a random desire with a new one
+                idx = random.randint(0, len(soul.desires) - 1)
+                new_desire = random.choice([d for d in _ALL_DESIRES if d not in soul.desires])
+                soul.desires[idx] = new_desire
+            elif mutation_type == "add" and len(soul.desires) < 4:
+                new_desire = random.choice([d for d in _ALL_DESIRES if d not in soul.desires])
+                soul.desires.append(new_desire)
+            # "intensify" — keep same desires but they carry more weight (no change needed)
+
+        # --- MUTATION: Skills ---
+        # 20% chance to gain or lose a skill
+        if random.random() < 0.2:
+            _ALL_SKILLS = [
+                "persuasion", "crafting", "meditation", "combat", "healing",
+                "diplomacy", "stealth", "teaching", "strategy", "oration",
+                "survival", "trade", "intimidation", "empathy", "deception",
+            ]
+            if random.random() < 0.6 and len(soul.skills) < 4:
+                # Gain a skill
+                new_skill = random.choice([s for s in _ALL_SKILLS if s not in soul.skills])
+                soul.skills.append(new_skill)
+            elif soul.skills:
+                # Lose a skill (forgotten across lives)
+                soul.skills.pop(random.randint(0, len(soul.skills) - 1))
+
+        # --- Standard rebirth ---
         soul.alive = True
         soul.age = 0
         soul.lives += 1

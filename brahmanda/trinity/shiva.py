@@ -73,11 +73,37 @@ class ShivaProtocol:
                     description=f"{soul.name} dies at age {soul.age} with karma {soul.karma}",
                 ))
 
-                # Samsara: rebirth
+                # Samsara: rebirth with mutation
                 old_loka = soul.loka
+                old_klesha = soul.klesha.model_dump()
+                old_desires = list(soul.desires)
+                old_skills = list(soul.skills)
+
                 maya.karma_engine.rebirth(soul)
                 soul.alive = True
                 maya.loka_manager.place_soul(soul)
+
+                # Track what mutated
+                new_klesha = soul.klesha.model_dump()
+                vice_changes = {k: round(new_klesha[k] - old_klesha[k], 3)
+                                for k in old_klesha if abs(new_klesha[k] - old_klesha[k]) > 0.001}
+                desire_changes = set(soul.desires) != set(old_desires)
+                skill_changes = set(soul.skills) != set(old_skills)
+
+                mutation_desc = ""
+                if vice_changes:
+                    mutations = [f"{k}:{d:+.2f}" for k, d in vice_changes.items()]
+                    mutation_desc += f" vices[{', '.join(mutations)}]"
+                if desire_changes:
+                    new_d = set(soul.desires) - set(old_desires)
+                    lost_d = set(old_desires) - set(soul.desires)
+                    if new_d: mutation_desc += f" +desire:{list(new_d)[0]}"
+                    if lost_d: mutation_desc += f" -desire:{list(lost_d)[0]}"
+                if skill_changes:
+                    new_s = set(soul.skills) - set(old_skills)
+                    lost_s = set(old_skills) - set(soul.skills)
+                    if new_s: mutation_desc += f" +skill:{list(new_s)[0]}"
+                    if lost_s: mutation_desc += f" -skill:{list(lost_s)[0]}"
 
                 events.append(Event(
                     tick=maya.tick,
@@ -86,9 +112,13 @@ class ShivaProtocol:
                     data={
                         "soul_name": soul.name, "new_karma": soul.karma,
                         "life_number": soul.lives, "from_loka": old_loka, "to_loka": soul.loka,
+                        "vice_changes": vice_changes,
+                        "desires_mutated": desire_changes,
+                        "skills_mutated": skill_changes,
                     },
                     description=f"{soul.name} is reborn in {maya.loka_manager.get_loka(soul.loka).name} "
-                                f"(life #{soul.lives}, karma: {soul.karma})",
+                                f"(life #{soul.lives}, karma: {soul.karma})"
+                                f"{' | MUTATION:' + mutation_desc if mutation_desc else ''}",
                 ))
 
         return events
