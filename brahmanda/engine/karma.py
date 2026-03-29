@@ -7,6 +7,7 @@ import random
 from brahmanda.config import (
     DEFAULT_LOKA,
     KARMA_ACTIONS,
+    KARMA_DECAY_RATE,
     SAMSARA_KARMA_RANGES,
     LokaID,
     YugaType,
@@ -30,6 +31,13 @@ class KarmaEngine:
     def apply_karma(self, soul: SoulState, delta: int) -> None:
         """Apply karma delta to a soul, clamped to [-200, 200]."""
         soul.karma = max(-200, min(200, soul.karma + delta))
+
+    def decay_karma(self, soul: SoulState) -> None:
+        """Karma naturally decays toward 0 each tick — nothing is permanent."""
+        if soul.karma > 0:
+            soul.karma = max(0, soul.karma - max(1, int(soul.karma * KARMA_DECAY_RATE)))
+        elif soul.karma < 0:
+            soul.karma = min(0, soul.karma + max(1, int(abs(soul.karma) * KARMA_DECAY_RATE)))
 
     def should_die(self, soul: SoulState, tick: int) -> bool:
         """Determine if a soul dies this tick (age + karma-weighted probability)."""

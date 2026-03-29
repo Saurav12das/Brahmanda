@@ -17,6 +17,31 @@ def _uid() -> str:
 # ---------------------------------------------------------------------------
 # Soul
 # ---------------------------------------------------------------------------
+class Klesha(BaseModel):
+    """The five inner enemies — Arishadvarga.
+
+    Each value ranges 0.0 (absent) to 1.0 (overwhelming).
+    These compete against virtuous desires and drive souls toward darkness.
+    """
+    kama: float = 0.3       # lust / craving for pleasure
+    krodha: float = 0.3     # wrath / anger / aggression
+    lobha: float = 0.3      # greed / never enough
+    moha: float = 0.3       # attachment / clinging / fear of loss
+    ahamkara: float = 0.3   # ego / pride / need to dominate
+
+    @property
+    def total_darkness(self) -> float:
+        """0.0 → 1.0 aggregate darkness level."""
+        return (self.kama + self.krodha + self.lobha + self.moha + self.ahamkara) / 5.0
+
+    @property
+    def dominant(self) -> str:
+        """The strongest vice."""
+        vices = {"kama": self.kama, "krodha": self.krodha, "lobha": self.lobha,
+                 "moha": self.moha, "ahamkara": self.ahamkara}
+        return max(vices, key=vices.get)
+
+
 class SoulState(BaseModel):
     id: str = Field(default_factory=_uid)
     name: str
@@ -31,6 +56,7 @@ class SoulState(BaseModel):
     skills: list[str] = Field(default_factory=list)
     resources: int = 10
     relationships: dict[str, int] = Field(default_factory=dict)  # soul_id → affinity
+    klesha: Klesha = Field(default_factory=Klesha)  # the five inner enemies
     is_avatar: bool = False
     avatar_mission: str | None = None
 

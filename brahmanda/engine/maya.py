@@ -81,6 +81,30 @@ class Maya:
         # Resource visibility
         resource_view = loka_state.resources if truth_vis > 0.3 else "unknown"
 
+        # Yuga-amplified vices — darker ages intensify the five enemies
+        # Satya: vices are dampened (×0.5), Kali: vices are amplified (×1.5)
+        vice_amplifier = {
+            YugaType.SATYA: 0.5,
+            YugaType.TRETA: 0.8,
+            YugaType.DVAPARA: 1.2,
+            YugaType.KALI: 1.5,
+        }[self.yuga]
+
+        # Entropy also feeds vices
+        entropy_boost = loka_state.entropy * 0.3
+
+        amplified_vices = {
+            "kama": min(1.0, soul.klesha.kama * vice_amplifier + entropy_boost * 0.5),
+            "krodha": min(1.0, soul.klesha.krodha * vice_amplifier + entropy_boost * 0.7),
+            "lobha": min(1.0, soul.klesha.lobha * vice_amplifier + entropy_boost * 0.6),
+            "moha": min(1.0, soul.klesha.moha * vice_amplifier + entropy_boost * 0.3),
+            "ahamkara": min(1.0, soul.klesha.ahamkara * vice_amplifier + entropy_boost * 0.5),
+        }
+
+        # Avatars resist vices
+        if soul.is_avatar:
+            amplified_vices = {k: v * 0.2 for k, v in amplified_vices.items()}
+
         return {
             "loka": loka_cfg["name"],
             "loka_description": loka_cfg["description"],
@@ -102,6 +126,7 @@ class Maya:
                 for sid, affinity in soul.relationships.items()
                 if sid in self.souls
             },
+            "your_vices": amplified_vices,
         }
 
     def _yuga_description(self) -> str:
@@ -198,11 +223,12 @@ class Maya:
         """Advance the cosmic clock by one tick."""
         result = self.yuga_clock.tick()
 
-        # Age all living souls
+        # Age all living souls and apply karma decay
         for soul in self.souls.values():
             if soul.alive:
                 soul.age += 1
                 soul.lifetime += 1
+                self.karma_engine.decay_karma(soul)
 
         return result
 

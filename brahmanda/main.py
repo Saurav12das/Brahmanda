@@ -81,7 +81,9 @@ async def run_universe() -> None:
     # Log initial soul states
     for soul in souls:
         records.log_soul_state(0, soul)
-        console.print(f"  [bold]{soul.name}[/bold] — karma:{soul.karma}, desires:{soul.desires}")
+        k = soul.klesha
+        dominant = k.dominant
+        console.print(f"  [bold]{soul.name}[/bold] — karma:{soul.karma}, desires:{soul.desires}, dominant vice: [red]{dominant}[/red] ({getattr(k, dominant):.2f})")
 
     # ---------------------------------------------------------------
     # PHASE 2: MAIN LOOP — the heartbeat of the universe

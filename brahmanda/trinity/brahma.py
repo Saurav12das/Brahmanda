@@ -14,7 +14,7 @@ import re
 import anthropic
 
 from brahmanda.config import DEFAULT_LOKA, INITIAL_SOUL_COUNT, TRINITY_MODEL, LokaID
-from brahmanda.db.models import Event, SoulState, _uid
+from brahmanda.db.models import Event, Klesha, SoulState, _uid
 from brahmanda.engine.maya import Maya
 
 
@@ -26,10 +26,17 @@ Each soul must feel distinct and real. Give them:
 - 2-3 desires that will drive their behavior (e.g., "seek knowledge", "accumulate power", "find love", "transcend suffering")
 - 1-2 skills (e.g., "persuasion", "crafting", "meditation", "combat", "healing")
 - A starting karma between -20 and 20 (most near 0, a few outliers)
+- The five inner vices (Arishadvarga), each a float from 0.0 to 1.0:
+  - kama (lust/craving for pleasure)
+  - krodha (wrath/anger/aggression)
+  - lobha (greed/never enough)
+  - moha (attachment/clinging/fear of loss)
+  - ahamkara (ego/pride/need to dominate)
+  Make these varied! Some souls should be deeply flawed. A warrior might have high krodha and ahamkara. A merchant high lobha. A lover high kama and moha. No soul should have all vices below 0.3.
 
 Respond with ONLY a JSON array. No other text.
 [
-  {"name": "...", "desires": ["..."], "skills": ["..."], "karma": 0},
+  {"name": "...", "desires": ["..."], "skills": ["..."], "karma": 0, "klesha": {"kama": 0.5, "krodha": 0.3, "lobha": 0.7, "moha": 0.4, "ahamkara": 0.6}},
   ...
 ]
 """
@@ -61,6 +68,7 @@ async def create_initial_souls(
 
         souls = []
         for sd in soul_data[:count]:
+            klesha_data = sd.get("klesha", {})
             soul = SoulState(
                 id=_uid(),
                 name=sd.get("name", f"Soul-{_uid()[:4]}"),
@@ -69,6 +77,13 @@ async def create_initial_souls(
                 skills=sd.get("skills", []),
                 loka=DEFAULT_LOKA,
                 resources=10,
+                klesha=Klesha(
+                    kama=max(0.1, min(1.0, klesha_data.get("kama", random.uniform(0.2, 0.8)))),
+                    krodha=max(0.1, min(1.0, klesha_data.get("krodha", random.uniform(0.2, 0.8)))),
+                    lobha=max(0.1, min(1.0, klesha_data.get("lobha", random.uniform(0.2, 0.8)))),
+                    moha=max(0.1, min(1.0, klesha_data.get("moha", random.uniform(0.2, 0.8)))),
+                    ahamkara=max(0.1, min(1.0, klesha_data.get("ahamkara", random.uniform(0.2, 0.8)))),
+                ),
             )
             souls.append(soul)
         return souls
@@ -132,8 +147,33 @@ def _fallback_souls(count: int) -> list[SoulState]:
         "diplomacy", "stealth", "teaching", "strategy", "oration",
     ]
 
+    # Archetype-based klesha profiles for diverse souls
+    archetypes = [
+        Klesha(kama=0.8, krodha=0.2, lobha=0.3, moha=0.9, ahamkara=0.3),  # The Lover
+        Klesha(kama=0.3, krodha=0.9, lobha=0.2, moha=0.4, ahamkara=0.8),  # The Warrior
+        Klesha(kama=0.4, krodha=0.3, lobha=0.9, moha=0.5, ahamkara=0.6),  # The Merchant
+        Klesha(kama=0.2, krodha=0.2, lobha=0.2, moha=0.2, ahamkara=0.2),  # The Sage
+        Klesha(kama=0.6, krodha=0.7, lobha=0.8, moha=0.3, ahamkara=0.9),  # The Tyrant
+        Klesha(kama=0.7, krodha=0.4, lobha=0.6, moha=0.8, ahamkara=0.4),  # The Hedonist
+        Klesha(kama=0.3, krodha=0.8, lobha=0.4, moha=0.7, ahamkara=0.5),  # The Avenger
+        Klesha(kama=0.5, krodha=0.3, lobha=0.3, moha=0.9, ahamkara=0.2),  # The Devoted
+        Klesha(kama=0.4, krodha=0.5, lobha=0.7, moha=0.4, ahamkara=0.7),  # The Schemer
+        Klesha(kama=0.2, krodha=0.6, lobha=0.3, moha=0.3, ahamkara=0.9),  # The Conqueror
+        Klesha(kama=0.9, krodha=0.6, lobha=0.5, moha=0.7, ahamkara=0.5),  # The Tempter
+        Klesha(kama=0.3, krodha=0.4, lobha=0.5, moha=0.6, ahamkara=0.3),  # The Everyman
+    ]
+
     souls = []
     for i in range(count):
+        klesha = archetypes[i % len(archetypes)]
+        # Add randomness so no two runs are identical
+        klesha = Klesha(
+            kama=max(0.1, min(1.0, klesha.kama + random.uniform(-0.15, 0.15))),
+            krodha=max(0.1, min(1.0, klesha.krodha + random.uniform(-0.15, 0.15))),
+            lobha=max(0.1, min(1.0, klesha.lobha + random.uniform(-0.15, 0.15))),
+            moha=max(0.1, min(1.0, klesha.moha + random.uniform(-0.15, 0.15))),
+            ahamkara=max(0.1, min(1.0, klesha.ahamkara + random.uniform(-0.15, 0.15))),
+        )
         souls.append(SoulState(
             id=_uid(),
             name=names[i % len(names)],
@@ -142,5 +182,6 @@ def _fallback_souls(count: int) -> list[SoulState]:
             skills=random.sample(skill_pool, k=random.randint(1, 2)),
             loka=DEFAULT_LOKA,
             resources=10,
+            klesha=klesha,
         ))
     return souls

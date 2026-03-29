@@ -132,20 +132,23 @@ DEFAULT_LOKA: LokaID = LokaID.BHU
 # Karma
 # ---------------------------------------------------------------------------
 KARMA_ACTIONS: dict[str, int] = {
-    "cooperate": 5,
-    "trade": 3,
-    "create": 4,
-    "meditate": 6,
-    "share": 4,
-    "teach": 5,
-    "fight_justified": -1,
-    "fight_unjustified": -8,
-    "deceive": -10,
-    "steal": -7,
-    "hoard": -3,
-    "destroy": -6,
+    "cooperate": 3,
+    "trade": 1,
+    "create": 2,
+    "meditate": 3,
+    "share": 3,
+    "teach": 2,
+    "fight_justified": -2,
+    "fight_unjustified": -12,
+    "deceive": -15,
+    "steal": -10,
+    "hoard": -5,
+    "destroy": -8,
     "neutral": 0,
 }
+
+# Karma naturally decays toward 0 each tick (nothing is permanent)
+KARMA_DECAY_RATE: float = 0.02  # lose 2% of karma per tick
 
 SAMSARA_KARMA_RANGES: dict[LokaID, tuple[int, int]] = {
     LokaID.PATALA: (-200, -20),
