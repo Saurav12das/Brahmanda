@@ -12,6 +12,8 @@ import re
 
 from brahmanda.config import (
     AVATAR_DEPLOY_THRESHOLD,
+    MAX_AVATARS_PER_YUGA,
+    MAX_SOUL_COUNT,
     TRINITY_MODEL,
     VISHNU_CHECK_INTERVAL,
     LokaID,
@@ -47,6 +49,8 @@ class VishnuProtocol:
     def __init__(self, client: LLMClient) -> None:
         self.client = client
         self.avatars_deployed: int = 0
+        self.avatars_this_yuga: int = 0
+        self.current_yuga: str = ""
 
     def should_check(self, tick: int) -> bool:
         return tick > 0 and tick % VISHNU_CHECK_INTERVAL == 0
@@ -55,6 +59,11 @@ class VishnuProtocol:
         """Evaluate universe health and potentially deploy an avatar."""
         events = []
         snapshot = maya.snapshot()
+
+        # Reset yuga avatar counter on yuga change
+        if maya.yuga.value != self.current_yuga:
+            self.current_yuga = maya.yuga.value
+            self.avatars_this_yuga = 0
 
         # Quick heuristic check first
         living_souls = [s for s in maya.souls.values() if s.alive]
@@ -66,6 +75,12 @@ class VishnuProtocol:
 
         # Only call LLM if things look concerning
         if max_entropy < AVATAR_DEPLOY_THRESHOLD and avg_karma > -30:
+            return events
+
+        # Hard caps — prevent avatar flood
+        if len(living_souls) >= MAX_SOUL_COUNT:
+            return events
+        if self.avatars_this_yuga >= MAX_AVATARS_PER_YUGA:
             return events
 
         try:
@@ -113,6 +128,7 @@ class VishnuProtocol:
                 )
                 maya.register_soul(avatar)
                 self.avatars_deployed += 1
+                self.avatars_this_yuga += 1
 
                 events.append(Event(
                     tick=maya.tick,

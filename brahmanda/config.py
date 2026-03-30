@@ -31,18 +31,19 @@ MAX_CONCURRENT_SOULS: int = 3 if LLM_BACKEND == "ollama" else 10  # local models
 # Simulation
 # ---------------------------------------------------------------------------
 TICKS_PER_YUGA: dict[str, int] = {
-    "satya": 40,
-    "treta": 30,
-    "dvapara": 20,
-    "kali": 10,
+    "satya": 400,
+    "treta": 300,
+    "dvapara": 200,
+    "kali": 100,
 }
 TOTAL_TICKS_PER_MAHAYUGA: int = sum(TICKS_PER_YUGA.values())  # 100
 
 INITIAL_SOUL_COUNT: int = 12
-MAX_SOUL_COUNT: int = 50
-SOUL_MEMORY_SIZE: int = 10       # last N events a soul remembers
-VISHNU_CHECK_INTERVAL: int = 5   # ticks between Vishnu health checks
-AVATAR_DEPLOY_THRESHOLD: float = 0.7  # entropy ratio that triggers avatar
+MAX_SOUL_COUNT: int = 20              # hard cap — prevents avatar flood
+SOUL_MEMORY_SIZE: int = 10            # last N events a soul remembers
+VISHNU_CHECK_INTERVAL: int = 50       # ticks between Vishnu health checks (was 5)
+AVATAR_DEPLOY_THRESHOLD: float = 0.85 # entropy ratio that triggers avatar (was 0.7)
+MAX_AVATARS_PER_YUGA: int = 2         # Vishnu can only deploy 2 avatars per yuga
 
 # ---------------------------------------------------------------------------
 # Yugas
