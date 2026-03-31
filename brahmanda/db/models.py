@@ -56,6 +56,8 @@ class SoulState(BaseModel):
     skills: list[str] = Field(default_factory=list)
     resources: int = 10
     prana: float = 100.0                  # life force — 0.0 = death
+    potential: float = 0.0                # innate spark (-1.0 to 1.0), set at birth
+    potential_manifested: str | None = None  # what the potential became (if activated)
     relationships: dict[str, int] = Field(default_factory=dict)  # soul_id → affinity
     klesha: Klesha = Field(default_factory=Klesha)  # the five inner enemies
     ideology: str | None = None           # belief system adopted from teaching/culture

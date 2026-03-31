@@ -130,9 +130,9 @@ async def run_universe() -> None:
                 signature_detector.record_glitch(ae)
             all_events.extend(asura_events)
 
-            # Civilization systems (knowledge, innovation, culture, ideology, power)
+            # Civilization systems (knowledge, innovation, culture, ideology, power, potential)
             loka_souls = [maya.souls[sid] for sid in loka_state.population if sid in maya.souls]
-            civ_events = civilization.process_loka(tick, loka_state, loka_souls, yuga)
+            civ_events = civilization.process_loka(tick, loka_state, loka_souls, yuga, maya.souls)
             all_events.extend(civ_events)
 
         # --- Soul decisions (parallel LLM calls) ---

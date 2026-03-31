@@ -163,6 +163,7 @@ class KarmaEngine:
                 soul.skills.pop(random.randint(0, len(soul.skills) - 1))
 
         # --- Standard rebirth ---
+        from brahmanda.engine.potential import assign_potential
         soul.alive = True
         soul.age = 0
         soul.lives += 1
@@ -170,6 +171,8 @@ class KarmaEngine:
         soul.karma = carried_karma
         soul.resources = 10
         soul.prana = PRANA_MAX  # full life force at rebirth
+        soul.potential = assign_potential()  # new spark each life
+        soul.potential_manifested = None
         soul.memories = soul.memories[-3:]
         soul.relationships = {}
         soul.is_avatar = False

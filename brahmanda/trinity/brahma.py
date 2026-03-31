@@ -14,6 +14,7 @@ import re
 from brahmanda.config import DEFAULT_LOKA, INITIAL_SOUL_COUNT, TRINITY_MODEL, LokaID
 from brahmanda.db.models import Event, Klesha, SoulState, _uid
 from brahmanda.engine.maya import Maya
+from brahmanda.engine.potential import assign_potential
 from brahmanda.llm import LLMClient
 
 
@@ -73,6 +74,7 @@ async def create_initial_souls(
                 skills=sd.get("skills", []),
                 loka=DEFAULT_LOKA,
                 resources=10,
+                potential=assign_potential(),
                 klesha=Klesha(
                     kama=max(0.1, min(1.0, klesha_data.get("kama", random.uniform(0.2, 0.8)))),
                     krodha=max(0.1, min(1.0, klesha_data.get("krodha", random.uniform(0.2, 0.8)))),
@@ -175,6 +177,7 @@ def _fallback_souls(count: int) -> list[SoulState]:
             skills=random.sample(skill_pool, k=random.randint(1, 2)),
             loka=DEFAULT_LOKA,
             resources=10,
+            potential=assign_potential(),
             klesha=klesha,
         ))
     return souls

@@ -12,6 +12,7 @@ import random
 
 from brahmanda.config import ACTIVE_LOKAS, LOKA_CONFIG, LokaID, YugaType, YUGA_PARAMS
 from brahmanda.db.models import Event, LokaState, SoulState
+from brahmanda.engine.potential import check_manifestation
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +288,10 @@ class CivilizationEngine:
     # ------------------------------------------------------------------
     # Run all civilization systems for a loka
     # ------------------------------------------------------------------
-    def process_loka(self, tick: int, loka: LokaState, souls: list[SoulState], yuga: YugaType) -> list[Event]:
+    def process_loka(
+        self, tick: int, loka: LokaState, souls: list[SoulState],
+        yuga: YugaType, all_souls: dict[str, SoulState] | None = None,
+    ) -> list[Event]:
         """Run all civilization systems for a single loka."""
         events = []
         events.extend(self.apply_knowledge_growth(loka, souls))
@@ -295,4 +299,10 @@ class CivilizationEngine:
         events.extend(self.apply_culture(loka, souls))
         events.extend(self.apply_ideology_spread(tick, souls))
         events.extend(self.apply_power_dynamics(tick, loka, souls))
+
+        # Potential manifestation — the rare spark
+        if all_souls:
+            for soul in souls:
+                events.extend(check_manifestation(tick, soul, loka, all_souls))
+
         return events
