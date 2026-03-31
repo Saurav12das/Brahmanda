@@ -128,6 +128,8 @@ class Maya:
                 if sid in self.souls
             },
             "your_vices": amplified_vices,
+            "your_potential": round(soul.potential, 3) if abs(soul.potential) > 0.3 else None,
+            "manifested_as": soul.potential_manifested,
         }
 
     def _yuga_description(self) -> str:

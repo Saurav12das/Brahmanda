@@ -20,6 +20,7 @@ from brahmanda.config import ACTIVE_LOKAS, LLM_BACKEND, ANTHROPIC_API_KEY, INITI
 from brahmanda.llm import create_client
 from brahmanda.agents.asura import AsuraEngine
 from brahmanda.agents.deva import DevaCouncil
+from brahmanda.engine.atman import process_atman, calculate_fulfillment
 from brahmanda.engine.civilization import CivilizationEngine
 from brahmanda.agents.soul import decide_batch
 from brahmanda.db.models import Event
@@ -134,6 +135,10 @@ async def run_universe() -> None:
             loka_souls = [maya.souls[sid] for sid in loka_state.population if sid in maya.souls]
             civ_events = civilization.process_loka(tick, loka_state, loka_souls, yuga, maya.souls)
             all_events.extend(civ_events)
+
+            # Atman systems (encounters, love, generation, fulfillment, alienation)
+            atman_events = process_atman(tick, loka_state, loka_souls, maya.souls)
+            all_events.extend(atman_events)
 
         # --- Soul decisions (parallel LLM calls) ---
         living_souls = [s for s in maya.souls.values() if s.alive]
