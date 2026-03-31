@@ -1,52 +1,45 @@
 # Brahmanda
 
-**A Vedic Universe Simulation Engine** — a research tool that spawns a living universe following ancient Hindu cosmological architecture, powered by LLM agents.
+**A Vedic Universe Simulation Engine** — a self-evolving research tool that spawns a living universe following ancient Hindu cosmological architecture, powered by LLM agents.
 
 > *"Ananta Koti Brahmanda" — Infinite millions of universes*
 
 ## What is this?
 
-Brahmanda simulates a single universe cycle (one "breath of Vishnu") where:
+Brahmanda simulates a single universe cycle (one "breath of Vishnu") where conscious souls are born, live, love, fight, innovate, form ideologies, build civilizations, and die — driven by the same forces described in ancient Sanskrit texts: karma, dharma, the five vices (Arishadvarga), and the cosmic cycles of the Yugas.
 
-- **Brahma** (Creator) generates conscious souls with unique personalities via Claude AI
-- **Vishnu** (Maintainer) monitors universe health and deploys Avatars when things go wrong
-- **Shiva** (Destroyer) applies entropy, processes death/rebirth, and triggers the final dissolution
-- **12-50 Soul Agents** make autonomous decisions each tick — they cooperate, fight, trade, deceive, meditate, and form alliances
-- **Maya** (Rendering Engine) filters what each soul can perceive based on their karma, dimension, and cosmic epoch
-- **Karma Engine** tracks consequences across multiple lives (samsara/rebirth)
+**No hard bounds.** Population, lifespan, death, and civilization all emerge from one principle: *resources are finite, souls need Prana (life force) to survive.*
 
 The goal: study **emergent patterns** (do civilizations and belief systems arise?) and **simulation signatures** (do the souls notice they're in a simulation?).
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│              VISHNU (Admin Agent)            │
-│   Monitors health, deploys Avatars, patches │
-├─────────────────────────────────────────────┤
-│     BRAHMA (Creator)  │  SHIVA (Destroyer)  │
-│     Spawns entities,  │  Entropy, resets,   │
-│     writes rules      │  garbage collection │
-├─────────────────────────────────────────────┤
-│              YUGA CLOCK (Time Engine)        │
-│   4 epochs: Satya → Treta → Dvapara → Kali │
-├─────────────────────────────────────────────┤
-│              MAYA (Rendering Engine)         │
-│   Filters perception by karma/loka/yuga     │
-├──────────────┬──────────────┬───────────────┤
-│   Svarga     │   Bhu-loka   │    Patala     │
-│  (Celestial) │  (Physical)  │ (Subterranean)│
-│  Time: 2x   │  Time: 1x    │  Time: 0.5x  │
-├──────────────┴──────────────┴───────────────┤
-│   KARMA ENGINE  │  DEVAS (Laws) │ ASURAS    │
-│   Action→Karma  │  Sun/Water/   │ (Chaos/   │
-│   + Samsara     │  Death cycles │  Glitches)│
-├─────────────────────────────────────────────┤
-│          SOUL AGENTS (LLM-powered)          │
-├─────────────────────────────────────────────┤
-│          OBSERVER (Research Output)         │
-│   Patterns · Signatures · Akashic Records   │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│                 ATMAN (Soul Needs)                   │
+│  Moksha · Belonging · Purpose · Love · Alienation    │
+├─────────────────────────────────────────────────────┤
+│              CIVILIZATION ENGINE                     │
+│  Knowledge · Innovation · Culture · Ideology · Power │
+├─────────────────────────────────────────────────────┤
+│              POTENTIAL (0.01% Spark)                  │
+│  Rare souls → Sage or Tyrant (environment decides)   │
+├─────────────────────────────────────────────────────┤
+│              TRINITY (Orchestrators)                  │
+│  Brahma (create) · Vishnu (maintain) · Shiva (destroy)│
+├─────────────────────────────────────────────────────┤
+│              AGENTS                                   │
+│  Souls (LLM) · Devas (natural laws) · Asuras (chaos) │
+├──────────────┬──────────────┬───────────────────────┤
+│   Svarga     │   Bhu-loka   │    Patala              │
+│  (Celestial) │  (Physical)  │  (Subterranean)        │
+├──────────────┴──────────────┴───────────────────────┤
+│  Maya (Perception) · Prana (Life Force) · Karma       │
+│  Yuga Clock · Arishadvarga (5 Vices) · Samsara        │
+├─────────────────────────────────────────────────────┤
+│              OBSERVER (Research Output)               │
+│  Patterns · Signatures · Akashic Records (SQLite)     │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
@@ -59,93 +52,127 @@ cd Brahmanda
 # Setup
 python3 -m venv .venv
 source .venv/bin/activate
-pip install anthropic pydantic rich
+pip install anthropic pydantic rich httpx
 
-# Run
-ANTHROPIC_API_KEY=sk-your-key python -m brahmanda.main
+# Run with local Ollama (free — requires ollama with qwen2.5)
+python3 -m brahmanda.main
+
+# Run with Claude API
+BRAHMANDA_BACKEND=claude ANTHROPIC_API_KEY=sk-your-key python3 -m brahmanda.main
 ```
 
-## What Happens During a Run
+## The Seven Engines
 
-### Phase 1: Creation (Brahma Exhales)
-Brahma generates 12 unique souls with LLM-crafted personalities, desires, and karma seeds. All souls awaken in Bhu-loka (the physical world).
+### 1. Prana (Life Force) — No Hard Bounds
+Every soul has Prana (0-100). It drains each tick from vices, entropy, age, and scarcity. Replenished by consuming loka resources. When Prana hits 0, the soul dies. This single mechanic replaces all hardcoded lifespans — **virtue literally keeps you alive longer.**
 
-### Phase 2: The Mahayuga Cycle (100 ticks)
-The universe progresses through 4 epochs:
+### 2. Arishadvarga (Five Vices)
+Every soul carries five inner enemies that pull them toward darkness:
 
-| Yuga | Ticks | Character |
-|------|-------|-----------|
-| **Satya** (Golden) | 40 | High dharma, abundant resources, cooperation |
-| **Treta** (Silver) | 30 | Dharma weakens, first conflicts emerge |
-| **Dvapara** (Bronze) | 20 | Alliances and wars, balance tips |
-| **Kali** (Dark) | 10 | Scarcity, deception, but small virtues amplified |
+| Vice | Sanskrit | Drives toward |
+|------|----------|---------------|
+| Lust | Kama | Pleasure-seeking, distraction |
+| Wrath | Krodha | Fighting, vengeance |
+| Greed | Lobha | Hoarding, stealing |
+| Attachment | Moha | Clinging, fear of change |
+| Ego | Ahamkara | Domination, deception |
 
-Each tick:
-1. **Devas** enforce natural laws (resource regen, entropy cleansing, disasters)
-2. **Asuras** inject chaos (false memories, karma noise, perception fog)
-3. **Souls** perceive their world through Maya and decide autonomously
-4. **Karma** scores every action; souls can die and be reborn in different dimensions
-5. **Vishnu** checks health; deploys Avatars if entropy spikes
-6. **Shiva** applies entropy and decay
+Vices are amplified in darker Yugas (0.5x in Satya, 1.5x in Kali) and dampened by culture. They drain Prana — a maximally corrupt soul burns through life force 2.5x faster than a virtuous one.
 
-### Phase 3: Dissolution (Vishnu Inhales)
-Shiva dances the Tandava — the universe dissolves. The Observer produces final reports.
+### 3. Civilization Engine
+- **Knowledge** — shared, anti-rivalrous, grows with teaching, decays with entropy
+- **Innovation** — 0.01% chance per tick, unlocks resource multipliers (Fire → Agriculture → Metallurgy → Engineering)
+- **Culture** — art and empathy dampen vices for the entire loka
+- **Ideology** — teachers spread beliefs, 30% chance of memetic drift (religions fragment)
+- **Power** — resources + ego = influence, influential souls tax others
+
+### 4. Soul Potential (The 0.01% Spark)
+Every soul is born with random potential (exponential distribution):
+- 91% ordinary
+- 8.9% notable
+- 0.79% high (1 in 125)
+- 0.063% extraordinary (1 in 1,600)
+
+Whether potential manifests positively or negatively depends on environment: society (culture/knowledge), peers (average karma), and relationships. The same high-potential soul becomes a **Rishi (Great Sage)** in a nurturing world or an **Asura Raja (Demon King)** in a hostile one.
+
+### 5. Atman (Soul Needs)
+Beyond survival, every soul has three existential needs:
+- **Moksha** — desire to transcend the cycle
+- **Belonging** — need for community and connection
+- **Purpose** — feeling that existence matters
+
+When all three fail, the soul becomes **alienated** — vices spike (especially wrath), driving conflict against society. This models radicalization.
+
+**Love & Destiny**: Souls randomly encounter each other. Compatible pairs form bonds. Deep bonds (mutual affinity > 20) can create **new souls** — children who inherit traits from both parents with mutation. Love is the ticket to the next generation.
+
+### 6. Samsara (Rebirth + Evolution)
+When a soul dies, it is reborn with:
+- 70% karma carryover
+- Random vice mutations (biased by past-life karma — good souls tend to shed vices)
+- 30% chance of desire mutation (new dark desires can emerge)
+- 20% chance of skill gain/loss
+- Fresh Prana and a new random potential
+
+### 7. Observer (Research Output)
+Tracks emergent patterns (alliances, inequality, factions) and simulation signatures (did souls notice they're simulated? did they develop cosmologies?).
+
+## The Feedback Web
+
+```
+RESOURCES ←→ PRANA ←→ SURVIVAL
+    ↑↓                  ↑↓
+INNOVATION ← KNOWLEDGE ← TEACHING
+    ↓                      ↓
+ENTROPY ←→ VICES ←→ CONFLICT ← ALIENATION ← UNMET NEEDS
+    ↑↓                ↑↓
+CULTURE ← ART ← CREATIVE SOULS (dampens vices)
+
+LOVE → CHILDREN (inherit traits) → NEXT GENERATION
+POWER ← RESOURCES + EGO → TAXATION → INEQUALITY
+IDEOLOGY ← TEACHERS → DRIFT → FACTIONS
+POTENTIAL → ENVIRONMENT → SAGE or TYRANT
+```
+
+Every arrow is a real mechanic in the code. No hard bounds remain.
 
 ## Dimensions (Lokas)
 
-| Loka | Level | Time | Entry Karma | Character |
-|------|-------|------|-------------|-----------|
-| **Svarga** | 8 | 2x slower | 50 to 100 | Celestial, subtle matter |
-| **Bhu** | 7 | 1x (baseline) | -50 to 50 | Physical world |
-| **Patala** | 1 | 0.5x slower | -100 to 0 | High-tech, low dharma |
+| Loka | Time | Entry Karma | Character |
+|------|------|-------------|-----------|
+| **Svarga** | 2x slower | 50 to 200 | Celestial, subtle matter |
+| **Bhu** | 1x | -50 to 50 | Physical world (default) |
+| **Patala** | 0.5x | -200 to 0 | High-tech, low dharma |
 
-Souls migrate between dimensions based on accumulated karma.
-
-## Research Output
-
-After each run, the Observer produces:
-
-### Emergent Patterns
-- Alliance and conflict networks
-- Resource inequality (Gini coefficient)
-- Faction/group formation
-- Cooperation vs. deception rates
-- Karma distribution across population
-
-### Simulation Signatures
-- **Simulation awareness**: Do souls reference being in a simulation?
-- **Emergent cosmology**: Do souls develop belief systems about gods/cycles?
-- **Karma quantization**: Discrete value patterns (like Planck-scale effects)
-- **Glitch density**: Frequency of Asura-induced anomalies
-
-All data is persisted to `brahmanda.db` (SQLite) for post-run analysis.
+Carrying capacity is resource-driven — no population caps.
 
 ## Configuration
 
-Key parameters in `brahmanda/config.py`:
+```bash
+# LLM Backend
+BRAHMANDA_BACKEND=ollama      # or "claude"
+OLLAMA_SOUL_MODEL=qwen2.5:14b # or qwen2.5:7b for faster runs
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `INITIAL_SOUL_COUNT` | 12 | Souls created at genesis |
-| `MAX_SOUL_COUNT` | 50 | Population cap |
-| `SOUL_MODEL` | claude-sonnet-4-6 | Model for soul decisions |
-| `TRINITY_MODEL` | claude-sonnet-4-6 | Model for Brahma/Vishnu |
-| `TICKS_PER_YUGA` | 40/30/20/10 | Duration of each epoch |
+# Simulation scale (in brahmanda/config.py)
+TICKS_PER_YUGA = {"satya": 40, "treta": 30, "dvapara": 20, "kali": 10}
+INITIAL_SOUL_COUNT = 12
+```
 
 ## Inspired By
 
-The cosmological architecture is drawn from:
-- **Vedas** — Multiverse concepts (Ananta Koti Brahmanda)
-- **Puranas** — Yuga cycles, 14 Lokas, Vishnu's breathing
-- **Mahabharata** — Karma, dharma, avatars
-- The **"Are we living in a simulation?"** research question
+- **Vedas** — Multiverse (Ananta Koti Brahmanda), Maya as rendering engine
+- **Puranas** — Yuga cycles, 14 Lokas, Vishnu's breathing, Avatar protocol
+- **Mahabharata** — Karma, dharma, Arishadvarga, samsara
+- **Simulation Theory** — "Are we living in a simulation?"
+- **Lotka-Volterra** — Population dynamics through resource competition
 
-## Share Your Results!
+## Share Your Results
 
 Run the simulation and share what emerged:
-- Did your souls form civilizations?
+- Did your souls form civilizations? Did knowledge grow?
+- Did anyone become a Rishi or an Asura Raja?
+- Did love create a next generation?
+- Did alienated souls turn against society?
 - Did anyone notice they were in a simulation?
-- What patterns appeared in the Kali Yuga?
 
 Open an issue with your Observer report — let's compare universes.
 

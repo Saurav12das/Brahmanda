@@ -27,10 +27,10 @@ MAX_CONCURRENT_SOULS: int = 3 if LLM_BACKEND == "ollama" else 10
 # Simulation
 # ---------------------------------------------------------------------------
 TICKS_PER_YUGA: dict[str, int] = {
-    "satya": 400,
-    "treta": 300,
-    "dvapara": 200,
-    "kali": 100,
+    "satya": 40,
+    "treta": 30,
+    "dvapara": 20,
+    "kali": 10,
 }
 TOTAL_TICKS_PER_MAHAYUGA: int = sum(TICKS_PER_YUGA.values())
 
