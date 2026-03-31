@@ -40,13 +40,34 @@ class KarmaEngine:
             soul.karma = min(0, soul.karma + max(1, int(abs(soul.karma) * KARMA_DECAY_RATE)))
 
     def should_die(self, soul: SoulState, tick: int) -> bool:
-        """Determine if a soul dies this tick (age + karma-weighted probability)."""
-        if soul.age < 10:
+        """Determine if a soul dies this tick (age + karma-weighted probability).
+
+        Lifespan model (in ticks):
+        - Minimum age: 40 ticks (childhood — cannot die)
+        - Prime of life: 40-80 ticks (very low mortality)
+        - Old age: 80-120 ticks (increasing mortality)
+        - Ancient: 120+ ticks (high mortality, but sages can survive longer)
+        - Negative karma shortens life, positive karma extends it
+        """
+        if soul.age < 40:
             return False
-        # Base mortality increases with age, very negative karma shortens life
-        base_chance = (soul.age - 10) * 0.02
-        karma_factor = max(0, -soul.karma) * 0.005
-        return random.random() < (base_chance + karma_factor)
+
+        # Gradual mortality curve
+        if soul.age < 80:
+            base_chance = (soul.age - 40) * 0.002   # 0% at 40, 8% at 80
+        elif soul.age < 120:
+            base_chance = 0.08 + (soul.age - 80) * 0.005  # 8% at 80, 28% at 120
+        else:
+            base_chance = 0.28 + (soul.age - 120) * 0.01   # escalating after 120
+
+        # Karma influence: negative karma increases mortality, positive decreases it
+        karma_factor = -soul.karma * 0.001  # -200 karma → +0.2, +200 karma → -0.2
+
+        # Avatars are harder to kill
+        if soul.is_avatar:
+            base_chance *= 0.3
+
+        return random.random() < max(0.001, base_chance + karma_factor)
 
     def determine_rebirth_loka(self, soul: SoulState) -> LokaID:
         """Based on accumulated karma, determine which loka the soul is reborn in."""
