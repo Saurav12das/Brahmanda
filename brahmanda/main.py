@@ -20,6 +20,7 @@ from brahmanda.config import ACTIVE_LOKAS, LLM_BACKEND, ANTHROPIC_API_KEY, INITI
 from brahmanda.llm import create_client
 from brahmanda.agents.asura import AsuraEngine
 from brahmanda.agents.deva import DevaCouncil
+from brahmanda.engine.civilization import CivilizationEngine
 from brahmanda.agents.soul import decide_batch
 from brahmanda.db.models import Event
 from brahmanda.db.store import AkashicRecords
@@ -50,6 +51,7 @@ async def run_universe() -> None:
     records = AkashicRecords()
     deva_council = DevaCouncil()
     asura_engine = AsuraEngine()
+    civilization = CivilizationEngine()
     shiva = ShivaProtocol()
     vishnu = VishnuProtocol(client)
     pattern_detector = PatternDetector()
@@ -127,6 +129,11 @@ async def run_universe() -> None:
             for ae in asura_events:
                 signature_detector.record_glitch(ae)
             all_events.extend(asura_events)
+
+            # Civilization systems (knowledge, innovation, culture, ideology, power)
+            loka_souls = [maya.souls[sid] for sid in loka_state.population if sid in maya.souls]
+            civ_events = civilization.process_loka(tick, loka_state, loka_souls, yuga)
+            all_events.extend(civ_events)
 
         # --- Soul decisions (parallel LLM calls) ---
         living_souls = [s for s in maya.souls.values() if s.alive]

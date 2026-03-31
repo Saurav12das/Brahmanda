@@ -76,12 +76,15 @@ class Maya:
         }[self.yuga]
         entropy_boost = loka_state.entropy * 0.3
 
+        # Culture dampens vices (art and empathy civilize)
+        culture_dampening = max(0.7, 1.0 - loka_state.culture * 0.3)
+
         amplified_vices = {
-            "kama": min(1.0, soul.klesha.kama * vice_amplifier + entropy_boost * 0.5),
-            "krodha": min(1.0, soul.klesha.krodha * vice_amplifier + entropy_boost * 0.7),
-            "lobha": min(1.0, soul.klesha.lobha * vice_amplifier + entropy_boost * 0.6),
-            "moha": min(1.0, soul.klesha.moha * vice_amplifier + entropy_boost * 0.3),
-            "ahamkara": min(1.0, soul.klesha.ahamkara * vice_amplifier + entropy_boost * 0.5),
+            "kama": min(1.0, (soul.klesha.kama * vice_amplifier + entropy_boost * 0.5) * culture_dampening),
+            "krodha": min(1.0, (soul.klesha.krodha * vice_amplifier + entropy_boost * 0.7) * culture_dampening),
+            "lobha": min(1.0, (soul.klesha.lobha * vice_amplifier + entropy_boost * 0.6) * culture_dampening),
+            "moha": min(1.0, (soul.klesha.moha * vice_amplifier + entropy_boost * 0.3) * culture_dampening),
+            "ahamkara": min(1.0, (soul.klesha.ahamkara * vice_amplifier + entropy_boost * 0.5) * culture_dampening),
         }
         if soul.is_avatar:
             amplified_vices = {k: v * 0.2 for k, v in amplified_vices.items()}
@@ -113,6 +116,11 @@ class Maya:
             "available_resources": resource_view,
             "entropy": round(loka_state.entropy, 2),
             "truth_clarity": round(truth_vis, 2),
+            "knowledge": round(loka_state.knowledge, 1),
+            "culture": round(loka_state.culture, 2),
+            "innovations": loka_state.innovations[-3:],
+            "your_ideology": soul.ideology,
+            "your_influence": round(soul.influence, 2),
             "population": len(loka_state.population),
             "relationships": {
                 self.souls[sid].name: affinity

@@ -58,6 +58,8 @@ class SoulState(BaseModel):
     prana: float = 100.0                  # life force — 0.0 = death
     relationships: dict[str, int] = Field(default_factory=dict)  # soul_id → affinity
     klesha: Klesha = Field(default_factory=Klesha)  # the five inner enemies
+    ideology: str | None = None           # belief system adopted from teaching/culture
+    influence: float = 0.0                # power/dominance over others (0.0-1.0)
     is_avatar: bool = False
     avatar_mission: str | None = None
 
@@ -93,6 +95,9 @@ class LokaState(BaseModel):
     population: list[str] = Field(default_factory=list)   # soul IDs
     entropy: float = 0.0
     tick_accumulator: float = 0.0   # for time dilation tracking
+    knowledge: float = 1.0         # shared knowledge pool (multiplies resource generation)
+    culture: float = 0.0           # art/empathy level (dampens vices for all souls)
+    innovations: list[str] = Field(default_factory=list)  # breakthrough discoveries
 
 
 # ---------------------------------------------------------------------------
