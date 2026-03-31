@@ -1,21 +1,19 @@
 """Devas — automated scripts that enforce natural laws in Brahmanda.
 
-Devas are not conscious agents. They are deterministic processes that
-maintain the simulation's physics: weather, resource regeneration,
-natural disasters, and cosmic order.
+Devas are deterministic processes: resource regeneration, entropy
+cleansing, and natural disasters. All scale dynamically with
+conditions — no fixed intervals.
 """
 
 from __future__ import annotations
 
 import random
 
-from brahmanda.config import LokaID, YugaType, YUGA_PARAMS
+from brahmanda.config import LOKA_CONFIG, LokaID, YugaType, YUGA_PARAMS
 from brahmanda.db.models import Event, LokaState
 
 
 class Deva:
-    """Base class for all automated natural law scripts."""
-
     def __init__(self, name: str, domain: str) -> None:
         self.name = name
         self.domain = domain
@@ -25,14 +23,25 @@ class Deva:
 
 
 class SuryaDeva(Deva):
-    """Sun god — drives resource regeneration cycles."""
+    """Sun god — resource regeneration with diminishing returns."""
 
     def __init__(self) -> None:
         super().__init__("Surya", "energy")
 
     def execute(self, tick: int, loka: LokaState, yuga: YugaType) -> list[Event]:
         params = YUGA_PARAMS[yuga]
-        regen = int(5 * params["resource_multiplier"])
+        base_regen = int(5 * params["resource_multiplier"])
+        base_resources = LOKA_CONFIG[loka.id]["base_resources"]
+
+        # Diminishing returns — cap regen when resources exceed 2x yuga-adjusted base
+        target = int(base_resources * params["resource_multiplier"])
+        if loka.resources > target * 2:
+            regen = max(1, base_regen // 4)
+        elif loka.resources > target:
+            regen = max(1, base_regen // 2)
+        else:
+            regen = base_regen
+
         loka.resources += regen
         return [Event(
             tick=tick, event_type="deva_action", loka=loka.id,
@@ -42,55 +51,50 @@ class SuryaDeva(Deva):
 
 
 class VarunaDeva(Deva):
-    """Water god — controls entropy through cleansing cycles."""
+    """Water god — entropy cleansing, responsive to conditions."""
 
     def __init__(self) -> None:
         super().__init__("Varuna", "entropy")
 
     def execute(self, tick: int, loka: LokaState, yuga: YugaType) -> list[Event]:
         events = []
-        # Periodic cleansing reduces entropy
-        if tick % 7 == 0:
-            reduction = 0.05
+        # Cleanse when entropy exceeds threshold — scales with severity
+        if loka.entropy > 0.3:
+            reduction = min(0.1, loka.entropy * 0.08)
             loka.entropy = max(0.0, loka.entropy - reduction)
             events.append(Event(
                 tick=tick, event_type="deva_action", loka=loka.id,
-                data={"deva": self.name, "effect": "entropy_cleanse", "amount": reduction},
-                description=f"Varuna's waters cleanse {loka.name} — entropy reduced",
+                data={"deva": self.name, "effect": "entropy_cleanse", "amount": round(reduction, 3)},
+                description=f"Varuna's waters cleanse {loka.name} — entropy reduced by {reduction:.3f}",
             ))
         return events
 
 
 class YamaDeva(Deva):
-    """Death god — enforces mortality and population balance."""
+    """Death god — natural disasters scale with population density."""
 
     def __init__(self) -> None:
         super().__init__("Yama", "death")
 
     def execute(self, tick: int, loka: LokaState, yuga: YugaType) -> list[Event]:
-        # Yama doesn't directly act here — mortality is handled by KarmaEngine.should_die
-        # But he triggers natural disasters when entropy is too high
         events = []
-        if loka.entropy > 0.8 and random.random() < 0.3:
-            damage = int(loka.resources * 0.2)
+        population = len(loka.population)
+        # Disasters when entropy high — damage scales with population
+        if loka.entropy > 0.7 and random.random() < 0.3:
+            density_factor = 1 + population / 10
+            damage = int(loka.resources * 0.15 * density_factor)
             loka.resources = max(0, loka.resources - damage)
             events.append(Event(
                 tick=tick, event_type="natural_disaster", loka=loka.id,
-                data={"deva": self.name, "effect": "disaster", "resource_loss": damage},
-                description=f"Yama's judgment: calamity strikes {loka.name}, {damage} resources lost",
+                data={"deva": self.name, "effect": "disaster", "resource_loss": damage, "population": population},
+                description=f"Yama's judgment: calamity strikes {loka.name}, {damage} resources lost (pop={population})",
             ))
         return events
 
 
 class DevaCouncil:
-    """Runs all devas each tick for a given loka."""
-
     def __init__(self) -> None:
-        self.devas: list[Deva] = [
-            SuryaDeva(),
-            VarunaDeva(),
-            YamaDeva(),
-        ]
+        self.devas: list[Deva] = [SuryaDeva(), VarunaDeva(), YamaDeva()]
 
     def execute_all(self, tick: int, loka: LokaState, yuga: YugaType) -> list[Event]:
         events = []

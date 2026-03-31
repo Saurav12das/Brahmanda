@@ -1,4 +1,4 @@
-"""Karma Engine — action-consequence tracker and samsara (rebirth) logic."""
+"""Karma Engine — action-consequence tracker, prana mechanics, and samsara."""
 
 from __future__ import annotations
 
@@ -7,94 +7,118 @@ import random
 from brahmanda.config import (
     DEFAULT_LOKA,
     KARMA_ACTIONS,
-    KARMA_DECAY_RATE,
+    KARMA_DECAY_BASE_RATE,
+    PRANA_AGE_DRAIN_ONSET,
+    PRANA_AGE_DRAIN_RATE,
+    PRANA_BASE_DRAIN,
+    PRANA_ENTROPY_DRAIN_FACTOR,
+    PRANA_MAX,
+    PRANA_REPLENISH_RATE,
+    PRANA_RESOURCE_CONVERSION,
+    PRANA_VICE_DRAIN_FACTOR,
     SAMSARA_KARMA_RANGES,
     LokaID,
     YugaType,
     YUGA_PARAMS,
 )
-from brahmanda.db.models import Action, SoulState
+from brahmanda.db.models import Action, LokaState, SoulState
 
 
 class KarmaEngine:
-    """Scores actions, accumulates karma, and determines rebirth."""
+    """Scores actions, manages prana (life force), and determines rebirth."""
 
+    # ------------------------------------------------------------------
+    # Karma
+    # ------------------------------------------------------------------
     def score_action(self, action_type: str, yuga: YugaType, context: dict | None = None) -> int:
-        """Calculate karma delta for an action, scaled by current yuga."""
         base = KARMA_ACTIONS.get(action_type, 0)
         multiplier = YUGA_PARAMS[yuga]["karma_multiplier"]
-        # In Kali Yuga, even small good deeds are amplified (mercy rule)
         if yuga == YugaType.KALI and base > 0:
             multiplier *= 1.5
         return int(base * multiplier)
 
     def apply_karma(self, soul: SoulState, delta: int) -> None:
-        """Apply karma delta to a soul, clamped to [-200, 200]."""
         soul.karma = max(-200, min(200, soul.karma + delta))
 
-    def decay_karma(self, soul: SoulState) -> None:
-        """Karma naturally decays toward 0 each tick — nothing is permanent."""
+    def decay_karma(self, soul: SoulState, loka_entropy: float, yuga: YugaType) -> None:
+        """Karma decays toward 0 — rate scales with entropy, yuga, and vices."""
+        base_rate = KARMA_DECAY_BASE_RATE
+        entropy_factor = 1.0 + loka_entropy * 2.0
+        yuga_factor = {"satya": 0.5, "treta": 0.8, "dvapara": 1.2, "kali": 1.8}[yuga.value]
+        vice_factor = 1.0 + soul.klesha.total_darkness * 0.5
+
+        rate = base_rate * entropy_factor * yuga_factor
+
         if soul.karma > 0:
-            soul.karma = max(0, soul.karma - max(1, int(soul.karma * KARMA_DECAY_RATE)))
+            # Vices accelerate positive karma decay (hard to stay virtuous when corrupt)
+            effective_rate = rate * vice_factor
+            soul.karma = max(0, soul.karma - max(1, int(soul.karma * effective_rate)))
         elif soul.karma < 0:
-            soul.karma = min(0, soul.karma + max(1, int(abs(soul.karma) * KARMA_DECAY_RATE)))
+            # Vices slow negative karma recovery (hard to redeem when corrupt)
+            effective_rate = rate / vice_factor
+            soul.karma = min(0, soul.karma + max(1, int(abs(soul.karma) * effective_rate)))
 
-    def should_die(self, soul: SoulState, tick: int) -> bool:
-        """Determine if a soul dies this tick (age + karma-weighted probability).
+    # ------------------------------------------------------------------
+    # Prana (Life Force) — replaces should_die
+    # ------------------------------------------------------------------
+    def drain_prana(self, soul: SoulState, loka_entropy: float, yuga: YugaType) -> float:
+        """Drain prana each tick. Returns amount drained."""
+        drain = PRANA_BASE_DRAIN
+        drain += soul.klesha.total_darkness * PRANA_VICE_DRAIN_FACTOR
+        drain += loka_entropy * PRANA_ENTROPY_DRAIN_FACTOR
 
-        Lifespan model (in ticks):
-        - Minimum age: 40 ticks (childhood — cannot die)
-        - Prime of life: 40-80 ticks (very low mortality)
-        - Old age: 80-120 ticks (increasing mortality)
-        - Ancient: 120+ ticks (high mortality, but sages can survive longer)
-        - Negative karma shortens life, positive karma extends it
-        """
-        if soul.age < 40:
-            return False
+        # Age factor — gradual increase after onset, not a cliff
+        if soul.age > PRANA_AGE_DRAIN_ONSET:
+            drain += (soul.age - PRANA_AGE_DRAIN_ONSET) * PRANA_AGE_DRAIN_RATE
 
-        # Gradual mortality curve
-        if soul.age < 80:
-            base_chance = (soul.age - 40) * 0.002   # 0% at 40, 8% at 80
-        elif soul.age < 120:
-            base_chance = 0.08 + (soul.age - 80) * 0.005  # 8% at 80, 28% at 120
-        else:
-            base_chance = 0.28 + (soul.age - 120) * 0.01   # escalating after 120
+        # Karma efficiency — positive karma reduces drain (up to 50%)
+        karma_efficiency = max(0.5, 1.0 - soul.karma / 400.0)
+        drain *= karma_efficiency
 
-        # Karma influence: negative karma increases mortality, positive decreases it
-        karma_factor = -soul.karma * 0.001  # -200 karma → +0.2, +200 karma → -0.2
-
-        # Avatars are harder to kill
+        # Avatars are more resilient
         if soul.is_avatar:
-            base_chance *= 0.3
+            drain *= 0.5
 
-        return random.random() < max(0.001, base_chance + karma_factor)
+        soul.prana = max(0.0, soul.prana - drain)
+        return drain
 
+    def replenish_prana(self, soul: SoulState, loka_state: LokaState) -> float:
+        """Replenish prana by consuming loka resources. Returns amount gained."""
+        deficit = PRANA_MAX - soul.prana
+        want = min(deficit, PRANA_REPLENISH_RATE)
+        if want <= 0:
+            return 0.0
+
+        # Resource cost: PRANA_RESOURCE_CONVERSION prana per 1 loka resource
+        resources_needed = int(want / PRANA_RESOURCE_CONVERSION) + 1
+        resources_available = max(0, loka_state.resources)
+        resources_consumed = min(resources_needed, resources_available)
+
+        prana_gained = min(want, resources_consumed * PRANA_RESOURCE_CONVERSION)
+        soul.prana = min(PRANA_MAX, soul.prana + prana_gained)
+        loka_state.resources -= resources_consumed
+        return prana_gained
+
+    def is_dead(self, soul: SoulState) -> bool:
+        """A soul dies when its prana is depleted."""
+        return soul.prana <= 0.0
+
+    # ------------------------------------------------------------------
+    # Samsara (Rebirth)
+    # ------------------------------------------------------------------
     def determine_rebirth_loka(self, soul: SoulState) -> LokaID:
-        """Based on accumulated karma, determine which loka the soul is reborn in."""
         for loka_id, (low, high) in SAMSARA_KARMA_RANGES.items():
             if low <= soul.karma <= high:
                 return loka_id
         return DEFAULT_LOKA
 
     def rebirth(self, soul: SoulState) -> SoulState:
-        """Process samsara — soul dies and is reborn with karma carryover + mutations.
-
-        Each rebirth introduces random mutations:
-        - Vices (klesha): small random drift, influenced by past-life karma
-        - Desires: chance to gain/lose/swap desires based on past-life experience
-        - Skills: chance to gain a new skill or lose one (knowledge isn't guaranteed)
-        This models spiritual evolution — souls can grow OR degrade across lives.
-        """
+        """Process samsara — death and rebirth with karma carryover + mutations."""
         new_loka = self.determine_rebirth_loka(soul)
         carried_karma = int(soul.karma * 0.7)
 
         # --- MUTATION: Vices ---
-        # Karma influences vice drift direction:
-        #   Positive karma → vices tend to decrease (spiritual growth)
-        #   Negative karma → vices tend to increase (deeper corruption)
         karma_bias = -0.05 if soul.karma > 20 else 0.05 if soul.karma < -20 else 0.0
-
-        # Each vice mutates independently
         k = soul.klesha
         soul.klesha = type(k)(
             kama=max(0.05, min(1.0, k.kama + random.uniform(-0.1, 0.1) + karma_bias)),
@@ -105,7 +129,6 @@ class KarmaEngine:
         )
 
         # --- MUTATION: Desires ---
-        # 30% chance to mutate a desire based on past-life actions
         if random.random() < 0.3 and soul.desires:
             _ALL_DESIRES = [
                 "seek knowledge", "accumulate power", "find love", "protect the weak",
@@ -116,17 +139,16 @@ class KarmaEngine:
             ]
             mutation_type = random.choice(["swap", "add", "intensify"])
             if mutation_type == "swap" and len(soul.desires) > 0:
-                # Replace a random desire with a new one
                 idx = random.randint(0, len(soul.desires) - 1)
-                new_desire = random.choice([d for d in _ALL_DESIRES if d not in soul.desires])
-                soul.desires[idx] = new_desire
+                available = [d for d in _ALL_DESIRES if d not in soul.desires]
+                if available:
+                    soul.desires[idx] = random.choice(available)
             elif mutation_type == "add" and len(soul.desires) < 4:
-                new_desire = random.choice([d for d in _ALL_DESIRES if d not in soul.desires])
-                soul.desires.append(new_desire)
-            # "intensify" — keep same desires but they carry more weight (no change needed)
+                available = [d for d in _ALL_DESIRES if d not in soul.desires]
+                if available:
+                    soul.desires.append(random.choice(available))
 
         # --- MUTATION: Skills ---
-        # 20% chance to gain or lose a skill
         if random.random() < 0.2:
             _ALL_SKILLS = [
                 "persuasion", "crafting", "meditation", "combat", "healing",
@@ -134,11 +156,10 @@ class KarmaEngine:
                 "survival", "trade", "intimidation", "empathy", "deception",
             ]
             if random.random() < 0.6 and len(soul.skills) < 4:
-                # Gain a skill
-                new_skill = random.choice([s for s in _ALL_SKILLS if s not in soul.skills])
-                soul.skills.append(new_skill)
+                available = [s for s in _ALL_SKILLS if s not in soul.skills]
+                if available:
+                    soul.skills.append(random.choice(available))
             elif soul.skills:
-                # Lose a skill (forgotten across lives)
                 soul.skills.pop(random.randint(0, len(soul.skills) - 1))
 
         # --- Standard rebirth ---
@@ -148,27 +169,24 @@ class KarmaEngine:
         soul.loka = new_loka
         soul.karma = carried_karma
         soul.resources = 10
-        soul.memories = soul.memories[-3:]  # faint past-life memories
+        soul.prana = PRANA_MAX  # full life force at rebirth
+        soul.memories = soul.memories[-3:]
         soul.relationships = {}
         soul.is_avatar = False
         soul.avatar_mission = None
         return soul
 
+    # ------------------------------------------------------------------
+    # Action Classification
+    # ------------------------------------------------------------------
     def classify_action(self, raw_action: str) -> str:
-        """Map a raw LLM action string to a known action type."""
         raw = raw_action.lower().strip()
-
-        # Handle fight first (before the loop matches fight_justified/fight_unjustified)
         if "fight" in raw:
             if any(w in raw for w in ("justified", "defend", "protect", "righteous", "duty")):
                 return "fight_justified"
             return "fight_unjustified"
-
-        # Exact match first
         if raw in KARMA_ACTIONS:
             return raw
-
-        # Synonym / fuzzy matching
         SYNONYMS = {
             "cooperate": ["cooperate", "collaborate", "work together", "help", "assist", "ally", "join"],
             "trade": ["trade", "exchange", "barter", "deal", "negotiate"],
@@ -186,22 +204,16 @@ class KarmaEngine:
             for kw in keywords:
                 if kw in raw:
                     return action_type
-
         return "neutral"
 
     def create_action_record(
         self, tick: int, soul: SoulState, action_type: str,
         target_id: str | None, description: str, yuga: YugaType,
     ) -> Action:
-        """Create a scored action record."""
         delta = self.score_action(action_type, yuga)
         self.apply_karma(soul, delta)
         return Action(
-            tick=tick,
-            soul_id=soul.id,
-            action_type=action_type,
-            target_id=target_id,
-            description=description,
-            karma_delta=delta,
-            loka=soul.loka,
+            tick=tick, soul_id=soul.id, action_type=action_type,
+            target_id=target_id, description=description,
+            karma_delta=delta, loka=soul.loka,
         )

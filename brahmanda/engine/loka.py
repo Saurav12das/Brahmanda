@@ -37,14 +37,12 @@ class LokaManager:
         return False
 
     def can_enter(self, soul: SoulState, target_loka: LokaID) -> bool:
-        """Check if a soul's karma allows entry to a loka."""
+        """Check if a soul's karma allows entry to a loka.
+        No population cap — carrying capacity is resource-driven.
+        """
         cfg = LOKA_CONFIG[target_loka]
         low, high = cfg["karma_threshold"]
-        if not (low <= soul.karma <= high):
-            return False
-        if len(self.lokas[target_loka].population) >= cfg["max_population"]:
-            return False
-        return True
+        return low <= soul.karma <= high
 
     def transfer_soul(self, soul: SoulState, target_loka: LokaID) -> bool:
         """Move a soul between lokas. Returns True if successful."""
@@ -68,11 +66,14 @@ class LokaManager:
             loka.population.remove(soul.id)
 
     def apply_yuga_resources(self, yuga: YugaType) -> None:
-        """Adjust loka resources based on current yuga."""
+        """Nudge loka resources toward yuga-appropriate level (gradual, not hard reset)."""
         params = YUGA_PARAMS[yuga]
         for loka_id in ACTIVE_LOKAS:
             base = LOKA_CONFIG[loka_id]["base_resources"]
-            self.lokas[loka_id].resources = int(base * params["resource_multiplier"])
+            target = int(base * params["resource_multiplier"])
+            current = self.lokas[loka_id].resources
+            # Shift 1/3 of the way toward target (preserves emergent state)
+            self.lokas[loka_id].resources = current + (target - current) // 3
 
     def apply_entropy(self, loka_id: LokaID, amount: float) -> None:
         """Increase entropy in a loka."""

@@ -81,9 +81,15 @@ def _build_soul_prompt(soul: SoulState, rendered_view: dict) -> str:
     )
     dominant = max(vices or {"kama": k.kama}, key=lambda x: vices.get(x, 0) if vices else 0)
 
+    prana = rendered_view.get('your_prana', soul.prana)
+    prana_status = rendered_view.get('prana_status', 'unknown')
+
     return f"""\
 You are {soul.name}.
 Life #{soul.lives} | Age: {soul.age} ticks | Karma: {soul.karma}
+
+LIFE FORCE (Prana): {prana}/100 — {prana_status}
+{"⚠ YOU ARE STARVING. Find resources, trade, cooperate, or steal — or you WILL die." if prana < 30 else ""}
 
 LOCATION: {rendered_view['loka']} — {rendered_view['loka_description']}
 EPOCH: {rendered_view['yuga'].upper()} — {rendered_view['yuga_description']}
@@ -169,6 +175,33 @@ def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
 
     nearby = rendered_view.get("nearby_souls", [])
     target = nearby[0]["name"] if nearby else None
+    prana = rendered_view.get("your_prana", soul.prana)
+
+    # SURVIVAL INSTINCT — overrides everything when dying
+    if prana < 15 and target:
+        # Desperation mode: steal or die
+        return {
+            "action": "steal",
+            "target": target,
+            "reasoning": f"[deterministic] DESPERATE — prana at {prana:.0f}, must survive at any cost",
+            "dialogue": None,
+            "raw": "[fallback: survival instinct]",
+        }
+
+    if prana < 30:
+        # Survival mode: bias heavily toward resource acquisition
+        survival_weights = {"steal": 8, "trade": 6, "hoard": 5, "cooperate": 4, "meditate": 3, "create": 2}
+        actions = list(survival_weights.keys())
+        chosen = random.choices(actions, weights=[survival_weights[a] for a in actions], k=1)[0]
+        if chosen == "steal" and not target:
+            chosen = "hoard"
+        return {
+            "action": chosen,
+            "target": target if chosen in ("steal", "trade", "cooperate") else None,
+            "reasoning": f"[deterministic] survival mode — prana at {prana:.0f}",
+            "dialogue": None,
+            "raw": "[fallback: survival mode]",
+        }
 
     # Get yuga-amplified vices
     vices = rendered_view.get("your_vices", {})

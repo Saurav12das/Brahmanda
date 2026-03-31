@@ -9,23 +9,19 @@ from enum import Enum, IntEnum
 # ---------------------------------------------------------------------------
 # API / LLM Backend
 # ---------------------------------------------------------------------------
-# Backend: "claude" or "ollama"
 LLM_BACKEND: str = os.environ.get("BRAHMANDA_BACKEND", "ollama")
 
-# Claude settings
 ANTHROPIC_API_KEY: str = os.environ.get("ANTHROPIC_API_KEY", "")
 CLAUDE_SOUL_MODEL: str = "claude-haiku-4-5-20251001"
 CLAUDE_TRINITY_MODEL: str = "claude-haiku-4-5-20251001"
 
-# Ollama settings
 OLLAMA_BASE_URL: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_SOUL_MODEL: str = os.environ.get("OLLAMA_SOUL_MODEL", "qwen2.5:14b")
 OLLAMA_TRINITY_MODEL: str = os.environ.get("OLLAMA_TRINITY_MODEL", "qwen2.5:14b")
 
-# Active model selection (resolved at import time)
 SOUL_MODEL: str = OLLAMA_SOUL_MODEL if LLM_BACKEND == "ollama" else CLAUDE_SOUL_MODEL
 TRINITY_MODEL: str = OLLAMA_TRINITY_MODEL if LLM_BACKEND == "ollama" else CLAUDE_TRINITY_MODEL
-MAX_CONCURRENT_SOULS: int = 3 if LLM_BACKEND == "ollama" else 10  # local models need lower concurrency
+MAX_CONCURRENT_SOULS: int = 3 if LLM_BACKEND == "ollama" else 10
 
 # ---------------------------------------------------------------------------
 # Simulation
@@ -36,14 +32,22 @@ TICKS_PER_YUGA: dict[str, int] = {
     "dvapara": 200,
     "kali": 100,
 }
-TOTAL_TICKS_PER_MAHAYUGA: int = sum(TICKS_PER_YUGA.values())  # 100
+TOTAL_TICKS_PER_MAHAYUGA: int = sum(TICKS_PER_YUGA.values())
 
 INITIAL_SOUL_COUNT: int = 12
-MAX_SOUL_COUNT: int = 20              # hard cap — prevents avatar flood
-SOUL_MEMORY_SIZE: int = 10            # last N events a soul remembers
-VISHNU_CHECK_INTERVAL: int = 50       # ticks between Vishnu health checks (was 5)
-AVATAR_DEPLOY_THRESHOLD: float = 0.85 # entropy ratio that triggers avatar (was 0.7)
-MAX_AVATARS_PER_YUGA: int = 2         # Vishnu can only deploy 2 avatars per yuga
+SOUL_MEMORY_SIZE: int = 10
+
+# ---------------------------------------------------------------------------
+# Prana (Life Force) — the core survival mechanic
+# ---------------------------------------------------------------------------
+PRANA_MAX: float = 100.0
+PRANA_BASE_DRAIN: float = 1.0                # base prana cost per tick
+PRANA_VICE_DRAIN_FACTOR: float = 1.5         # total_darkness * this = extra drain
+PRANA_ENTROPY_DRAIN_FACTOR: float = 1.0      # loka_entropy * this = extra drain
+PRANA_AGE_DRAIN_ONSET: int = 80              # age at which aging adds drain
+PRANA_AGE_DRAIN_RATE: float = 0.02           # per-tick drain increase past onset
+PRANA_REPLENISH_RATE: float = 5.0            # max prana replenished per tick
+PRANA_RESOURCE_CONVERSION: float = 2.0       # prana gained per 1 loka resource
 
 # ---------------------------------------------------------------------------
 # Yugas
@@ -66,7 +70,7 @@ YUGA_PARAMS: dict[YugaType, dict] = {
     YugaType.SATYA: {
         "resource_multiplier": 2.0,
         "karma_multiplier": 1.5,
-        "truth_visibility": 1.0,    # souls can perceive full truth
+        "truth_visibility": 1.0,
         "asura_spawn_rate": 0.05,
         "entropy_rate": 0.01,
         "cooperation_bias": 0.8,
@@ -98,43 +102,37 @@ YUGA_PARAMS: dict[YugaType, dict] = {
 }
 
 # ---------------------------------------------------------------------------
-# Lokas
+# Lokas — no max_population caps, carrying capacity is resource-driven
 # ---------------------------------------------------------------------------
 class LokaID(IntEnum):
-    """14 Lokas numbered bottom (1) to top (14). We activate 3 for v1."""
     PATALA = 1
-    # ATALA = 2, VITALA = 3, SUTALA = 4, TALATALA = 5, MAHATALA = 6  (future)
     BHU = 7
     SVARGA = 8
-    # MAHAR = 9, JANA = 10, TAPA = 11, SATYA_LOKA = 12, VAIKUNTHA = 13, BRAHMA_LOKA = 14  (future)
 
 
 LOKA_CONFIG: dict[LokaID, dict] = {
     LokaID.PATALA: {
         "name": "Patala",
         "description": "Subterranean realm — technologically advanced, dharma-poor",
-        "time_multiplier": 0.5,     # time moves slower (fewer ticks processed)
+        "time_multiplier": 0.5,
         "base_resources": 200,
-        "max_population": 15,
-        "karma_threshold": (-100, 0),  # negative karma range to enter
+        "karma_threshold": (-200, 0),
         "physics": "high_tech_low_dharma",
     },
     LokaID.BHU: {
         "name": "Bhu-loka",
         "description": "The physical world — where most souls incarnate",
-        "time_multiplier": 1.0,     # baseline
+        "time_multiplier": 1.0,
         "base_resources": 100,
-        "max_population": 30,
         "karma_threshold": (-50, 50),
         "physics": "standard",
     },
     LokaID.SVARGA: {
         "name": "Svarga-loka",
         "description": "Celestial realm — subtle matter, higher frequencies",
-        "time_multiplier": 2.0,     # 1 tick here = 2 ticks in Bhu
+        "time_multiplier": 2.0,
         "base_resources": 300,
-        "max_population": 10,
-        "karma_threshold": (50, 100),
+        "karma_threshold": (50, 200),
         "physics": "subtle_matter",
     },
 }
@@ -161,8 +159,7 @@ KARMA_ACTIONS: dict[str, int] = {
     "neutral": 0,
 }
 
-# Karma naturally decays toward 0 each tick (nothing is permanent)
-KARMA_DECAY_RATE: float = 0.02  # lose 2% of karma per tick
+KARMA_DECAY_BASE_RATE: float = 0.02  # baseline, scaled by entropy/yuga/vices
 
 SAMSARA_KARMA_RANGES: dict[LokaID, tuple[int, int]] = {
     LokaID.PATALA: (-200, -20),
@@ -174,18 +171,8 @@ SAMSARA_KARMA_RANGES: dict[LokaID, tuple[int, int]] = {
 # Actions available to soul agents
 # ---------------------------------------------------------------------------
 SOUL_ACTIONS: list[str] = [
-    "cooperate",   # work with nearby soul
-    "trade",       # exchange resources
-    "create",      # build something
-    "meditate",    # increase perception, gain karma
-    "share",       # give resources to another
-    "teach",       # transfer knowledge
-    "fight",       # conflict with another soul
-    "deceive",     # manipulate another soul
-    "steal",       # take resources
-    "hoard",       # accumulate resources selfishly
-    "explore",     # move to adjacent area
-    "neutral",     # observe, do nothing
+    "cooperate", "trade", "create", "meditate", "share", "teach",
+    "fight", "deceive", "steal", "hoard", "explore", "neutral",
 ]
 
 # ---------------------------------------------------------------------------

@@ -55,6 +55,7 @@ class SoulState(BaseModel):
     desires: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     resources: int = 10
+    prana: float = 100.0                  # life force — 0.0 = death
     relationships: dict[str, int] = Field(default_factory=dict)  # soul_id → affinity
     klesha: Klesha = Field(default_factory=Klesha)  # the five inner enemies
     is_avatar: bool = False

@@ -166,8 +166,8 @@ async def run_universe() -> None:
         death_events = shiva.process_deaths(maya)
         all_events.extend(death_events)
 
-        # --- Vishnu: health check ---
-        if vishnu.should_check(tick):
+        # --- Vishnu: event-driven health check ---
+        if vishnu.should_intervene(maya):
             vishnu_events = await vishnu.evaluate(maya)
             all_events.extend(vishnu_events)
 
