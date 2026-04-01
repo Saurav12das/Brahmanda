@@ -251,7 +251,10 @@ class Maya:
                 self.karma_engine.decay_karma(soul, loka_state.entropy, self.yuga)
 
                 # Prana drain then replenish — the heartbeat of survival
-                self.karma_engine.drain_prana(soul, loka_state.entropy, self.yuga)
+                # Innovation efficiency reduces drain (cooking, medicine, yoga)
+                from brahmanda.engine.tech_tree import TechTree
+                inn_efficiency = TechTree().get_prana_efficiency(loka_state)
+                self.karma_engine.drain_prana(soul, loka_state.entropy, self.yuga, inn_efficiency)
                 self.karma_engine.replenish_prana(soul, loka_state)
 
         return result

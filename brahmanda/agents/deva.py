@@ -35,10 +35,8 @@ class SuryaDeva(Deva):
 
         # Knowledge/innovation multiplier — civilization generates more resources
         knowledge_mult = max(1.0, loka.knowledge * 0.2)
-        # Count innovation bonuses
-        from brahmanda.engine.civilization import CivilizationEngine
-        _civ = CivilizationEngine()
-        innovation_mult = _civ.get_innovation_resource_multiplier(loka)
+        from brahmanda.engine.tech_tree import TechTree
+        innovation_mult = TechTree().get_resource_multiplier(loka)
         base_regen = int(base_regen * knowledge_mult * innovation_mult)
 
         # Diminishing returns — cap regen when resources exceed 2x yuga-adjusted base

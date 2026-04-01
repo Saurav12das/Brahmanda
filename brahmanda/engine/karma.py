@@ -61,11 +61,17 @@ class KarmaEngine:
     # ------------------------------------------------------------------
     # Prana (Life Force) — replaces should_die
     # ------------------------------------------------------------------
-    def drain_prana(self, soul: SoulState, loka_entropy: float, yuga: YugaType) -> float:
-        """Drain prana each tick. Returns amount drained."""
+    def drain_prana(self, soul: SoulState, loka_entropy: float, yuga: YugaType,
+                   innovation_efficiency: float = 0.0) -> float:
+        """Drain prana each tick. Returns amount drained.
+        innovation_efficiency: prana drain reduction from tech tree discoveries.
+        """
         drain = PRANA_BASE_DRAIN
         drain += soul.klesha.total_darkness * PRANA_VICE_DRAIN_FACTOR
         drain += loka_entropy * PRANA_ENTROPY_DRAIN_FACTOR
+
+        # Innovation efficiency — cooking, medicine, yoga reduce drain
+        drain = max(0.3, drain - innovation_efficiency)
 
         # Age factor — gradual increase after onset, not a cliff
         if soul.age > PRANA_AGE_DRAIN_ONSET:

@@ -13,26 +13,7 @@ import random
 from brahmanda.config import ACTIVE_LOKAS, LOKA_CONFIG, LokaID, YugaType, YUGA_PARAMS
 from brahmanda.db.models import Event, LokaState, SoulState
 from brahmanda.engine.potential import check_manifestation
-
-
-# ---------------------------------------------------------------------------
-# Innovation breakthroughs — each permanently shifts resource generation
-# ---------------------------------------------------------------------------
-INNOVATIONS = [
-    {"name": "Fire Mastery", "knowledge_req": 2.0, "resource_bonus": 0.3, "entropy_cost": 0.02},
-    {"name": "Agriculture", "knowledge_req": 5.0, "resource_bonus": 0.5, "entropy_cost": 0.03},
-    {"name": "Metallurgy", "knowledge_req": 10.0, "resource_bonus": 0.4, "entropy_cost": 0.05},
-    {"name": "Writing", "knowledge_req": 8.0, "resource_bonus": 0.2, "entropy_cost": 0.01},
-    {"name": "Mathematics", "knowledge_req": 12.0, "resource_bonus": 0.3, "entropy_cost": 0.01},
-    {"name": "Medicine", "knowledge_req": 15.0, "resource_bonus": 0.2, "entropy_cost": 0.02},
-    {"name": "Architecture", "knowledge_req": 18.0, "resource_bonus": 0.4, "entropy_cost": 0.04},
-    {"name": "Navigation", "knowledge_req": 20.0, "resource_bonus": 0.3, "entropy_cost": 0.02},
-    {"name": "Alchemy", "knowledge_req": 25.0, "resource_bonus": 0.5, "entropy_cost": 0.06},
-    {"name": "Astronomy", "knowledge_req": 30.0, "resource_bonus": 0.2, "entropy_cost": 0.01},
-    {"name": "Engineering", "knowledge_req": 35.0, "resource_bonus": 0.6, "entropy_cost": 0.07},
-    {"name": "Philosophy", "knowledge_req": 15.0, "resource_bonus": 0.0, "entropy_cost": -0.03},
-    {"name": "Yoga & Meditation", "knowledge_req": 10.0, "resource_bonus": 0.0, "entropy_cost": -0.05},
-]
+from brahmanda.engine.tech_tree import TechTree
 
 # Ideologies that can spread through teaching
 IDEOLOGIES = [
@@ -52,6 +33,7 @@ class CivilizationEngine:
 
     def __init__(self) -> None:
         self.global_innovations: dict[LokaID, list[str]] = {lid: [] for lid in ACTIVE_LOKAS}
+        self.tech_tree = TechTree()
 
     # ------------------------------------------------------------------
     # Knowledge
@@ -82,66 +64,25 @@ class CivilizationEngine:
         return events
 
     # ------------------------------------------------------------------
-    # Innovation (the 0.01% chance)
+    # Innovation (tech tree — branching, compounding)
     # ------------------------------------------------------------------
     def check_innovation(self, tick: int, loka: LokaState, souls: list[SoulState], yuga: YugaType) -> list[Event]:
-        """0.01% base chance per tick that a breakthrough occurs."""
-        events = []
+        """Attempt tech tree discoveries — prerequisites must be met first."""
         if not souls:
-            return events
-
-        # Base probability: 0.01% per soul with relevant skills, per tick
-        innovators = [s for s in souls if any(
-            sk in s.skills for sk in ("crafting", "strategy", "meditation", "teaching")
-        )]
-        if not innovators:
-            return events
-
-        # Chance scales with knowledge level and number of innovators
-        base_chance = 0.0001 * len(innovators) * (loka.knowledge / 5.0)
-
-        # Yuga modifier — easier to innovate in Satya, harder in Kali
-        yuga_mod = {"satya": 2.0, "treta": 1.5, "dvapara": 1.0, "kali": 0.5}[yuga.value]
-        chance = base_chance * yuga_mod
-
-        if random.random() >= chance:
-            return events
-
-        # Find the next available innovation
-        available = [inn for inn in INNOVATIONS
-                     if inn["name"] not in loka.innovations
-                     and loka.knowledge >= inn["knowledge_req"]]
-        if not available:
-            return events
-
-        innovation = available[0]  # unlock in order
-        innovator = random.choice(innovators)
-
-        loka.innovations.append(innovation["name"])
-        loka.entropy = min(1.0, loka.entropy + innovation["entropy_cost"])
-
-        events.append(Event(
-            tick=tick, event_type="innovation", loka=loka.id,
-            data={
-                "innovation": innovation["name"],
-                "innovator": innovator.name,
-                "knowledge": round(loka.knowledge, 1),
-                "resource_bonus": innovation["resource_bonus"],
-                "entropy_cost": innovation["entropy_cost"],
-            },
-            description=f"BREAKTHROUGH: {innovator.name} discovers {innovation['name']}! "
-                        f"(knowledge={loka.knowledge:.1f}, resource bonus +{innovation['resource_bonus']:.0%})",
-        ))
-
-        return events
+            return []
+        return self.tech_tree.attempt_discovery(tick, loka, souls, yuga.value)
 
     def get_innovation_resource_multiplier(self, loka: LokaState) -> float:
-        """Total resource generation bonus from all innovations in a loka."""
-        multiplier = 1.0
-        for inn in INNOVATIONS:
-            if inn["name"] in loka.innovations:
-                multiplier += inn["resource_bonus"]
-        return multiplier
+        """Total resource generation multiplier from all innovations."""
+        return self.tech_tree.get_resource_multiplier(loka)
+
+    def get_prana_efficiency(self, loka: LokaState) -> float:
+        """Total prana drain reduction from innovations."""
+        return self.tech_tree.get_prana_efficiency(loka)
+
+    def get_trade_multiplier(self, loka: LokaState) -> float:
+        """Total trade effectiveness from innovations."""
+        return self.tech_tree.get_trade_multiplier(loka)
 
     # ------------------------------------------------------------------
     # Culture & Art (vice dampener)
