@@ -22,6 +22,7 @@ from brahmanda.agents.asura import AsuraEngine
 from brahmanda.agents.deva import DevaCouncil
 from brahmanda.engine.atman import process_atman, calculate_fulfillment
 from brahmanda.engine.civilization import CivilizationEngine
+from brahmanda.engine.discovery import DiscoveryEngine, InnovationFromDiscovery
 from brahmanda.agents.soul import decide_batch
 from brahmanda.db.models import Event
 from brahmanda.db.store import AkashicRecords
@@ -53,6 +54,8 @@ async def run_universe() -> None:
     deva_council = DevaCouncil()
     asura_engine = AsuraEngine()
     civilization = CivilizationEngine()
+    discovery_engine = DiscoveryEngine()
+    innovation_engine = InnovationFromDiscovery()
     shiva = ShivaProtocol()
     vishnu = VishnuProtocol(client)
     pattern_detector = PatternDetector()
@@ -170,6 +173,24 @@ async def run_universe() -> None:
                 pattern_detector.record_action(tick, soul.name, action_type, target_name)
                 signature_detector.record_dialogue(tick, soul.name, decision.get("dialogue"))
                 signature_detector.record_karma_delta(event.data.get("karma_delta", 0))
+
+            # --- Discovery & Emergent Innovation (souls reflect on their world) ---
+            for soul in living_souls:
+                if not soul.alive:
+                    continue
+                rendered = maya.render(soul)
+                loka_state = maya.loka_manager.get_loka(soul.loka)
+
+                # Discovery — soul observes patterns
+                disc_events = await discovery_engine.inquiry(tick, soul, loka_state, client, rendered)
+                all_events.extend(disc_events)
+
+                # Emergent innovation — soul invents from discoveries
+                loka_discoveries = discovery_engine.discoveries.get(str(loka_state.id), [])
+                inn_events = await innovation_engine.attempt_innovation(
+                    tick, soul, loka_state, client, rendered, loka_discoveries,
+                )
+                all_events.extend(inn_events)
 
         # --- Shiva: entropy + death/rebirth ---
         entropy_events = shiva.apply_entropy(maya)
