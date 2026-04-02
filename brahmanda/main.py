@@ -23,6 +23,7 @@ from brahmanda.agents.deva import DevaCouncil
 from brahmanda.engine.atman import process_atman, calculate_fulfillment
 from brahmanda.engine.civilization import CivilizationEngine
 from brahmanda.engine.discovery import DiscoveryEngine, InnovationFromDiscovery
+from brahmanda.engine.emergent_science import EmergentScienceEngine
 from brahmanda.agents.soul import decide_batch
 from brahmanda.db.models import Event
 from brahmanda.db.store import AkashicRecords
@@ -56,6 +57,7 @@ async def run_universe() -> None:
     civilization = CivilizationEngine()
     discovery_engine = DiscoveryEngine()
     innovation_engine = InnovationFromDiscovery()
+    emergent_science = EmergentScienceEngine()
     shiva = ShivaProtocol()
     vishnu = VishnuProtocol(client)
     pattern_detector = PatternDetector()
@@ -190,6 +192,12 @@ async def run_universe() -> None:
                 inn_events = await innovation_engine.attempt_innovation(
                     tick, soul, loka_state, client, rendered, loka_discoveries,
                 )
+
+                # Emergent science — soul founds a new branch of knowledge
+                sci_events = await emergent_science.attempt_new_science(
+                    tick, soul, loka_state, client, rendered, loka_discoveries,
+                )
+                all_events.extend(sci_events)
                 all_events.extend(inn_events)
 
         # --- Shiva: entropy + death/rebirth ---
@@ -295,6 +303,21 @@ async def run_universe() -> None:
         kq = sig_report.karma_quantization
         console.print(f"  Karma quantization: {'YES' if kq.get('is_quantized') else 'NO'} "
                        f"({kq.get('unique_values', 0)} unique values)")
+
+    # Emergent science report
+    science_summary = emergent_science.get_science_tree_summary()
+    if science_summary:
+        console.print()
+        console.print(Panel("[bold]EMERGENT SCIENCES — Soul-Created Knowledge[/bold]", border_style="bright_green"))
+        for sci in science_summary:
+            built_on = ", ".join(sci["builds_on"])
+            branched = f" → spawned {sci['built_upon_count']} further sciences" if sci["built_upon_count"] else ""
+            console.print(
+                f"  [bold]{sci['name']}[/bold] (by {sci['created_by']}, tick {sci['created_tick']})"
+            )
+            console.print(f"    {sci['description']}")
+            console.print(f"    Builds on: {built_on}{branched}")
+            console.print(f"    Effects: {sci['effects']}")
 
     if sig_report.signatures_detected:
         console.print()
