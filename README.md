@@ -61,7 +61,7 @@ python3 -m brahmanda.main
 BRAHMANDA_BACKEND=claude ANTHROPIC_API_KEY=sk-your-key python3 -m brahmanda.main
 ```
 
-## The Ten Engines
+## The Eleven Engines
 
 ### 1. Prana (Life Force) — No Hard Bounds
 Every soul has Prana (0-100). It drains each tick from vices, entropy, age, and scarcity. Replenished by consuming loka resources. When Prana hits 0, the soul dies. This single mechanic replaces all hardcoded lifespans — **virtue literally keeps you alive longer.**
@@ -192,8 +192,27 @@ Three agent types drive the simulation:
 
 **Asuras (Chaos Engine)** — Spawn based on Yuga (rare in Satya, rampant in Kali). They corrupt resources, amplify vices, and spread entropy — the universe's antibodies testing whether order can survive.
 
-### 10. Observer (Research Output)
-Tracks emergent patterns (alliances, inequality, factions) and simulation signatures (did souls notice they're simulated? did they develop cosmologies?).
+### 10. Emergent Science (Autonomous Knowledge Branching)
+Souls don't just discover predefined mechanics — they can **found entirely new fields of science** that never existed before. This is the auto-branching system:
+
+1. A soul with enough experience, skills, and access to existing discoveries reflects deeply
+2. The LLM proposes a **new field of knowledge** that combines 2+ existing innovations or discoveries
+3. We validate the proposal (real prerequisites, bounded effects, no duplicates)
+4. The new science becomes a **real node** in the knowledge graph, tagged `[S]` in the innovation list
+5. Future souls can build on it — creating further branches no one designed
+
+**Example emergent chains:**
+```
+Medicine + Mathematics → [S] Anatomical Geometry → [S] Surgical Theory
+Fire + Philosophy → [S] Thermodynamic Ethics
+Agriculture + Astronomy → [S] Seasonal Science → [S] Climate Prediction
+Writing + karma_returns → [S] Karmic Record-Keeping
+```
+
+Each simulation run produces a **unique scientific tradition** — two universes will never develop the same tree. Sciences are capped at 10 per loka to prevent runaway cascading, and effects are bounded to moderate levels.
+
+### 11. Observer (Research Output)
+Tracks emergent patterns (alliances, inequality, factions) and simulation signatures (did souls notice they're simulated? did they develop cosmologies?). Now also reports the **emergent science tree** — which fields of knowledge each civilization independently created.
 
 ## The Feedback Web
 
@@ -213,6 +232,8 @@ POWER ← RESOURCES + EGO → TAXATION → INEQUALITY
 IDEOLOGY ← TEACHERS → DRIFT → FACTIONS
 POTENTIAL → ENVIRONMENT → SAGE or TYRANT (15 manifestation types)
 TECH TREE → compound effects → accelerates everything above
+EMERGENT SCIENCE ← souls combine discoveries + innovations → NEW knowledge branches
+    ↓ (other souls build on these → autonomous branching)
 ```
 
 Every arrow is a real mechanic in the code. No hard bounds remain.
