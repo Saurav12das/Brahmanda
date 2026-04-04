@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import random
 
-from brahmanda.config import LOKA_CONFIG, LokaID, YugaType
+from brahmanda.config import LAWS, LOKA_CONFIG, LokaID, YugaType
 from brahmanda.db.models import Event, Klesha, LokaState, SoulState, _uid
 from brahmanda.engine.potential import assign_potential
 
@@ -89,7 +89,7 @@ def process_encounters(tick: int, loka: LokaState, souls: list[SoulState]) -> li
         return events
 
     # 15% chance of a significant encounter per tick per loka
-    if random.random() > 0.15:
+    if random.random() > LAWS["atman_encounter_chance"]:
         return events
 
     soul_a, soul_b = random.sample(souls, 2)
@@ -97,10 +97,22 @@ def process_encounters(tick: int, loka: LokaState, souls: list[SoulState]) -> li
     # What kind of encounter? Based on compatibility
     compatibility = _calculate_compatibility(soul_a, soul_b)
 
-    if compatibility > 0.6:
+    if compatibility > LAWS["atman_compatibility_positive"]:
         # Strong positive encounter — potential love or deep friendship
         _update_rel(soul_a, soul_b.id, random.randint(5, 15))
         _update_rel(soul_b, soul_a.id, random.randint(5, 15))
+
+        # Hope contagion — spreads between bonded souls with diminishing returns
+        if compatibility > LAWS["atman_compatibility_positive"]:
+            cap = LAWS["hope_contagion_cap"]
+            rate = LAWS["hope_contagion_rate"]
+            for s in (soul_a, soul_b):
+                other = soul_b if s is soul_a else soul_a
+                # Diminishing returns: souls near extremes absorb less
+                absorption = rate * (1.0 - abs(s.hope) * 0.8)
+                s.hope += (other.hope - s.hope) * absorption
+                # Hard cap from contagion
+                s.hope = max(-cap, min(cap, s.hope))
 
         encounter_type = "love_spark" if compatibility > 0.8 and random.random() < 0.3 else "deep_bond"
 
@@ -120,7 +132,7 @@ def process_encounters(tick: int, loka: LokaState, souls: list[SoulState]) -> li
                 description=f"{soul_a.name} and {soul_b.name} form a deep bond",
             ))
 
-    elif compatibility < -0.3:
+    elif compatibility < LAWS["atman_compatibility_negative"]:
         # Negative encounter — instant rivalry
         _update_rel(soul_a, soul_b.id, random.randint(-10, -3))
         _update_rel(soul_b, soul_a.id, random.randint(-10, -3))
@@ -189,22 +201,40 @@ def process_love_generation(
             if not other.alive or other.loka != soul.loka:
                 continue
             mutual = other.relationships.get(soul.id, 0)
-            if affinity > 20 and mutual > 20:
+            if affinity > LAWS["atman_love_bond_threshold"] and mutual > LAWS["atman_love_bond_threshold"]:
                 bonded_pairs.append((soul, other))
 
     for parent_a, parent_b in bonded_pairs:
         # 2% chance per tick for a bonded pair to create new life
-        if random.random() > 0.02:
+        if random.random() > LAWS["atman_birth_chance"]:
             continue
 
         # Resource check — need enough resources to sustain a new soul
-        if loka.resources < 20:
+        if loka.resources < LAWS["atman_birth_resource_req"]:
             continue
 
         # Create child with inherited traits
         child = _create_child(parent_a, parent_b, loka)
         all_souls[child.id] = child
         loka.population.append(child.id)
+
+        # Parent → Child memory inheritance (family wisdom)
+        parent_wisdom = []
+        for parent in (parent_a, parent_b):
+            if parent.memories:
+                # Pick the most meaningful memory from each parent
+                teachings = [m for m in parent.memories if any(kw in m.lower() for kw in
+                            ("taught", "discovered", "truth", "learned", "founded", "invented"))]
+                if teachings:
+                    parent_wisdom.append(f"My parent {parent.name} said: '{teachings[-1][:60]}'")
+                elif len(parent.memories) > 2:
+                    parent_wisdom.append(f"Family memory from {parent.name}: '{parent.memories[-1][:60]}'")
+        child.memories = parent_wisdom + child.memories
+
+        # Also inject Akashic Memory from birth loka
+        akashic = [m for m in loka.akashic_memory if m not in child.memories]
+        if akashic:
+            child.memories = random.sample(akashic, min(2, len(akashic))) + child.memories
 
         # Parents invest resources
         parent_a.resources = max(0, parent_a.resources - 5)
@@ -267,6 +297,9 @@ def _create_child(parent_a: SoulState, parent_b: SoulState, loka: LokaState) -> 
     parent_skills = list(set(parent_a.skills + parent_b.skills))
     child_skills = random.sample(parent_skills, min(1, len(parent_skills))) if parent_skills else []
 
+    hope_inherited = (parent_a.hope + parent_b.hope) / 2 + random.uniform(-0.1, 0.1)
+    hope_inherited = max(-1.0, min(1.0, hope_inherited))
+
     return SoulState(
         id=_uid(),
         name=name,
@@ -279,6 +312,7 @@ def _create_child(parent_a: SoulState, parent_b: SoulState, loka: LokaState) -> 
         desires=child_desires,
         skills=child_skills,
         klesha=klesha,
+        hope=hope_inherited,
     )
 
 
@@ -292,24 +326,31 @@ def check_alienation(tick: int, soul: SoulState, fulfillment: dict) -> list[Even
     events = []
     total = fulfillment["total"]
 
-    if total > 0.3:
+    if total > LAWS["atman_alienation_threshold"]:
         return events  # needs are sufficiently met
 
     # Soul is alienated — vices intensify
-    alienation_severity = max(0, 0.3 - total) * 3  # 0-1 scale
+    alienation_severity = max(0, LAWS["atman_alienation_threshold"] - total) * 3  # 0-1 scale
 
     # Small vice boost from alienation each tick
     boost = alienation_severity * 0.01
     soul.klesha = type(soul.klesha)(
         kama=min(1.0, soul.klesha.kama + boost * 0.5),
-        krodha=min(1.0, soul.klesha.krodha + boost * 1.5),  # anger grows fastest
+        krodha=min(1.0, soul.klesha.krodha + boost * LAWS["atman_vice_boost_krodha"]),  # anger grows fastest
         lobha=min(1.0, soul.klesha.lobha + boost),
         moha=min(1.0, soul.klesha.moha + boost * 0.3),
-        ahamkara=min(1.0, soul.klesha.ahamkara + boost * 1.2),
+        ahamkara=min(1.0, soul.klesha.ahamkara + boost * LAWS["atman_vice_boost_ahamkara"]),
     )
 
+    # Alienation drives despair; fulfillment generates hope
+    if total < 0.1:
+        soul.hope = max(-1.0, soul.hope * 0.9 - 0.03)  # despair accumulates
+    elif total > LAWS["atman_alienation_threshold"]:
+        # Mild hope boost from fulfillment
+        soul.hope = min(1.0, soul.hope + (total - LAWS["atman_alienation_threshold"]) * 0.02)
+
     # Severe alienation events (rare but impactful)
-    if total < 0.1 and random.random() < 0.05:
+    if total < 0.1 and random.random() < LAWS["atman_alienation_crisis_chance"]:
         events.append(Event(
             tick=tick, event_type="alienation_crisis", loka=soul.loka,
             data={"soul": soul.name, "fulfillment": fulfillment,
@@ -341,6 +382,16 @@ def process_atman(
     for soul in souls:
         fulfillment = calculate_fulfillment(soul, loka, all_souls)
         events.extend(check_alienation(tick, soul, fulfillment))
+
+    # Hope group correction — prevent runaway spirals
+    if souls:
+        avg_hope = sum(s.hope for s in souls) / len(souls)
+        threshold = LAWS["hope_group_correction_threshold"]
+        correction_rate = LAWS["hope_group_correction_rate"]
+        if abs(avg_hope) > threshold:
+            correction = correction_rate * (0 - avg_hope)
+            for soul in souls:
+                soul.hope = max(-1.0, min(1.0, soul.hope + correction))
 
     return events
 

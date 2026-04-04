@@ -11,7 +11,7 @@ import json
 import random
 import re
 
-from brahmanda.config import DEFAULT_LOKA, INITIAL_SOUL_COUNT, TRINITY_MODEL, LokaID
+from brahmanda.config import DEFAULT_LOKA, INITIAL_SOUL_COUNT, LAWS, TRINITY_MODEL, LokaID
 from brahmanda.db.models import Event, Klesha, SoulState, _uid
 from brahmanda.engine.maya import Maya
 from brahmanda.engine.potential import assign_potential
@@ -57,6 +57,8 @@ async def create_initial_souls(
             max_tokens=2000,
         )
         raw = response.text
+        from brahmanda.llm import strip_markdown_fences
+        raw = strip_markdown_fences(raw)
         match = re.search(r'\[.*\]', raw, re.DOTALL)
         if match:
             soul_data = json.loads(match.group())
@@ -82,6 +84,7 @@ async def create_initial_souls(
                     moha=max(0.1, min(1.0, klesha_data.get("moha", random.uniform(0.2, 0.8)))),
                     ahamkara=max(0.1, min(1.0, klesha_data.get("ahamkara", random.uniform(0.2, 0.8)))),
                 ),
+                hope=random.uniform(LAWS["hope_initial_min"], LAWS["hope_initial_max"]),
             )
             souls.append(soul)
         return souls
@@ -107,6 +110,8 @@ async def spawn_new_soul(
             max_tokens=400,
         )
         raw = response.text
+        from brahmanda.llm import strip_markdown_fences
+        raw = strip_markdown_fences(raw)
         match = re.search(r'\{[^{}]*\}', raw, re.DOTALL)
         if match:
             sd = json.loads(match.group())
@@ -118,6 +123,7 @@ async def spawn_new_soul(
                 skills=sd.get("skills", []),
                 loka=DEFAULT_LOKA,
                 resources=10,
+                hope=random.uniform(LAWS["hope_initial_min"], LAWS["hope_initial_max"]),
             )
     except Exception:
         pass
@@ -179,5 +185,6 @@ def _fallback_souls(count: int) -> list[SoulState]:
             resources=10,
             potential=assign_potential(),
             klesha=klesha,
+            hope=random.uniform(LAWS["hope_initial_min"], LAWS["hope_initial_max"]),
         ))
     return souls

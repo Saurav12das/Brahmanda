@@ -50,6 +50,10 @@ async def run_universe() -> None:
 
     console.print(f"  [dim]LLM Backend: {LLM_BACKEND.upper()}[/dim]")
     client = create_client()
+
+    from brahmanda.randomizer import randomize_universe_laws
+    seed = randomize_universe_laws()
+
     maya = Maya()
     records = AkashicRecords()
     deva_council = DevaCouncil()
@@ -92,7 +96,7 @@ async def run_universe() -> None:
         records.log_soul_state(0, soul)
         k = soul.klesha
         dominant = k.dominant
-        console.print(f"  [bold]{soul.name}[/bold] — karma:{soul.karma}, desires:{soul.desires}, dominant vice: [red]{dominant}[/red] ({getattr(k, dominant):.2f})")
+        console.print(f"  [bold]{soul.name}[/bold] — karma:{soul.karma}, hope:{soul.hope:+.2f}, desires:{soul.desires}, dominant vice: [red]{dominant}[/red] ({getattr(k, dominant):.2f})")
 
     # ---------------------------------------------------------------
     # PHASE 2: MAIN LOOP — the heartbeat of the universe
@@ -273,6 +277,8 @@ async def run_universe() -> None:
     console.print(f"  Resource inequality (Gini): {pattern_report.resource_inequality:.3f}")
     console.print(f"  Cooperation rate: {pattern_report.cooperation_rate:.1%}")
     console.print(f"  Deception rate: {pattern_report.deception_rate:.1%}")
+    console.print(f"  Average hope: {pattern_report.avg_hope:+.2f}")
+    console.print(f"  Hope distribution: {pattern_report.hope_distribution}")
     console.print(f"  Karma distribution: {pattern_report.karma_distribution}")
 
     if pattern_report.dominant_actions:

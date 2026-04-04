@@ -56,11 +56,11 @@ class OllamaClient:
 
     def __init__(self, base_url: str = OLLAMA_BASE_URL) -> None:
         self.base_url = base_url
-        self._semaphore = asyncio.Semaphore(3)  # limit concurrent local model calls
+        self._semaphore = asyncio.Semaphore(2)  # limit concurrent local model calls
 
     async def generate(self, model: str, system: str, prompt: str, max_tokens: int = 300) -> LLMResponse:
         async with self._semaphore:
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=300.0) as client:
                 response = await client.post(
                     f"{self.base_url}/api/chat",
                     json={
@@ -80,6 +80,12 @@ class OllamaClient:
                 data = response.json()
                 text = data.get("message", {}).get("content", "")
                 return LLMResponse(text=text)
+
+
+def strip_markdown_fences(text: str) -> str:
+    """Strip markdown code fences (```json ... ```) from LLM output."""
+    import re
+    return re.sub(r'```(?:json)?\s*', '', text).strip()
 
 
 def create_client() -> LLMClient:

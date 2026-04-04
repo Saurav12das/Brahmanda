@@ -16,12 +16,12 @@ CLAUDE_SOUL_MODEL: str = "claude-haiku-4-5-20251001"
 CLAUDE_TRINITY_MODEL: str = "claude-haiku-4-5-20251001"
 
 OLLAMA_BASE_URL: str = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_SOUL_MODEL: str = os.environ.get("OLLAMA_SOUL_MODEL", "qwen2.5:14b")
-OLLAMA_TRINITY_MODEL: str = os.environ.get("OLLAMA_TRINITY_MODEL", "qwen2.5:14b")
+OLLAMA_SOUL_MODEL: str = os.environ.get("OLLAMA_SOUL_MODEL", "gemma4:31b")
+OLLAMA_TRINITY_MODEL: str = os.environ.get("OLLAMA_TRINITY_MODEL", "gemma4:31b")
 
 SOUL_MODEL: str = OLLAMA_SOUL_MODEL if LLM_BACKEND == "ollama" else CLAUDE_SOUL_MODEL
 TRINITY_MODEL: str = OLLAMA_TRINITY_MODEL if LLM_BACKEND == "ollama" else CLAUDE_TRINITY_MODEL
-MAX_CONCURRENT_SOULS: int = 3 if LLM_BACKEND == "ollama" else 10
+MAX_CONCURRENT_SOULS: int = 2 if LLM_BACKEND == "ollama" else 10
 
 # ---------------------------------------------------------------------------
 # Simulation
@@ -34,7 +34,7 @@ TICKS_PER_YUGA: dict[str, int] = {
 }
 TOTAL_TICKS_PER_MAHAYUGA: int = sum(TICKS_PER_YUGA.values())
 
-INITIAL_SOUL_COUNT: int = 12
+INITIAL_SOUL_COUNT: int = int(os.environ.get("BRAHMANDA_SOULS", "5"))
 SOUL_MEMORY_SIZE: int = 10
 
 # ---------------------------------------------------------------------------
@@ -179,3 +179,108 @@ SOUL_ACTIONS: list[str] = [
 # Database
 # ---------------------------------------------------------------------------
 DB_PATH: str = os.environ.get("BRAHMANDA_DB", "brahmanda.db")
+
+# ---------------------------------------------------------------------------
+# Mutable Universe Laws — randomized at simulation start
+# Engine files import this dict and read values at call time.
+# ---------------------------------------------------------------------------
+LAWS: dict[str, float] = {
+    # Hope/Despair system
+    "hope_prana_dampening": 0.2,          # max prana drain reduction from hope
+    "hope_vice_dampening": 0.3,           # max vice amplification reduction from hope
+    "hope_virtue_multiplier": 1.5,        # max virtuous action weight multiplier
+    "despair_vice_multiplier": 3.0,       # max vice weight multiplier at -1.0 despair
+    "despair_breaking_point": -0.5,       # threshold where despair goes exponential
+    "hope_fatigue_onset": 0.5,            # hope level where benefits start diminishing
+    "hope_contagion_rate": 0.3,           # base contagion rate between bonded souls
+    "hope_contagion_cap": 0.8,            # hard cap for contagion-driven hope
+    "hope_group_correction_threshold": 0.6,  # avg hope/despair that triggers regression
+    "hope_group_correction_rate": 0.01,   # per-tick regression toward mean
+    "hope_rebirth_carry": 0.6,            # fraction of hope carried in rebirth
+    "hope_initial_min": -0.3,             # min initial hope
+    "hope_initial_max": 0.5,              # max initial hope (slight optimism bias)
+
+    # Maya (perception rendering)
+    "maya_vice_satya": 0.5,
+    "maya_vice_treta": 0.8,
+    "maya_vice_dvapara": 1.2,
+    "maya_vice_kali": 1.5,
+    "maya_entropy_boost": 0.3,
+    "maya_culture_dampening_max": 0.3,    # max culture dampening (0.7 floor)
+
+    # Civilization
+    "civ_teacher_knowledge": 0.1,
+    "civ_meditator_knowledge": 0.05,
+    "civ_creator_knowledge": 0.08,
+    "civ_soul_knowledge_bonus": 0.05,
+    "civ_entropy_knowledge_decay": 0.1,
+    "civ_artist_culture": 0.03,
+    "civ_empath_culture": 0.02,
+    "civ_entropy_culture_decay": 0.05,
+    "civ_ideology_develop_chance": 0.02,
+    "civ_ideology_spread_chance": 0.05,
+    "civ_ideology_drift_chance": 0.3,
+    "civ_power_influence_rate": 0.1,
+    "civ_power_tax_threshold": 0.5,
+    "civ_power_subject_threshold": 0.3,
+
+    # Atman (soul needs)
+    "atman_encounter_chance": 0.15,
+    "atman_compatibility_positive": 0.6,
+    "atman_compatibility_negative": -0.3,
+    "atman_love_bond_threshold": 20,
+    "atman_birth_chance": 0.02,
+    "atman_birth_resource_req": 20,
+    "atman_alienation_threshold": 0.3,
+    "atman_alienation_crisis_chance": 0.05,
+    "atman_vice_boost_krodha": 1.5,
+    "atman_vice_boost_ahamkara": 1.2,
+
+    # Potential
+    "potential_age_req": 20,
+    "potential_chance_multiplier": 0.001,
+    "potential_min_threshold": 0.1,
+    "potential_karma_reward": 20,
+
+    # Discovery
+    "discovery_inquiry_chance": 0.02,
+    "discovery_age_req": 15,
+    "discovery_lives_req": 2,
+    "discovery_keyword_match": 2,
+
+    # Emergent Science
+    "esci_min_innovations": 3,
+    "esci_min_discoveries": 2,
+    "esci_age_req": 20,
+    "esci_lives_req": 2,
+    "esci_attempt_chance": 0.005,
+    "esci_max_per_loka": 10,
+
+    # Devas
+    "deva_surya_base_regen": 5,
+    "deva_varuna_threshold": 0.3,
+    "deva_varuna_rate": 0.08,
+    "deva_yama_entropy_threshold": 0.7,
+    "deva_yama_trigger_chance": 0.3,
+    "deva_yama_damage_factor": 0.15,
+
+    # Asura chaos magnitudes
+    "asura_resource_delta_small": 10,
+    "asura_resource_delta_large": 20,
+    "asura_karma_noise": 15,
+    "asura_relationship_shift": 10,
+    "asura_perception_fog": 0.15,
+
+    # Shiva
+    "shiva_entropy_density_divisor": 10,
+    "shiva_decay_threshold": 0.6,
+    "shiva_decay_rate": 0.05,
+
+    # Vishnu
+    "vishnu_cooldown": 20,
+    "vishnu_starvation_threshold": 10,
+    "vishnu_entropy_crisis": 0.85,
+    "vishnu_avatar_karma": 100,
+    "vishnu_avatar_resources": 50,
+    "vishnu_sustainability_threshold": 5,
+}

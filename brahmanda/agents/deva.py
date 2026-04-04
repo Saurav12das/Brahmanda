@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 
-from brahmanda.config import LOKA_CONFIG, LokaID, YugaType, YUGA_PARAMS
+from brahmanda.config import LOKA_CONFIG, LAWS, LokaID, YugaType, YUGA_PARAMS
 from brahmanda.db.models import Event, LokaState
 
 
@@ -30,7 +30,7 @@ class SuryaDeva(Deva):
 
     def execute(self, tick: int, loka: LokaState, yuga: YugaType) -> list[Event]:
         params = YUGA_PARAMS[yuga]
-        base_regen = int(5 * params["resource_multiplier"])
+        base_regen = int(LAWS["deva_surya_base_regen"] * params["resource_multiplier"])
         base_resources = LOKA_CONFIG[loka.id]["base_resources"]
 
         # Knowledge/innovation multiplier — civilization generates more resources
@@ -65,8 +65,8 @@ class VarunaDeva(Deva):
     def execute(self, tick: int, loka: LokaState, yuga: YugaType) -> list[Event]:
         events = []
         # Cleanse when entropy exceeds threshold — scales with severity
-        if loka.entropy > 0.3:
-            reduction = min(0.1, loka.entropy * 0.08)
+        if loka.entropy > LAWS["deva_varuna_threshold"]:
+            reduction = min(0.1, loka.entropy * LAWS["deva_varuna_rate"])
             loka.entropy = max(0.0, loka.entropy - reduction)
             events.append(Event(
                 tick=tick, event_type="deva_action", loka=loka.id,
@@ -86,9 +86,9 @@ class YamaDeva(Deva):
         events = []
         population = len(loka.population)
         # Disasters when entropy high — damage scales with population
-        if loka.entropy > 0.7 and random.random() < 0.3:
+        if loka.entropy > LAWS["deva_yama_entropy_threshold"] and random.random() < LAWS["deva_yama_trigger_chance"]:
             density_factor = 1 + population / 10
-            damage = int(loka.resources * 0.15 * density_factor)
+            damage = int(loka.resources * LAWS["deva_yama_damage_factor"] * density_factor)
             loka.resources = max(0, loka.resources - damage)
             events.append(Event(
                 tick=tick, event_type="natural_disaster", loka=loka.id,

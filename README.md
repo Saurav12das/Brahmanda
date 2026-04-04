@@ -1,70 +1,203 @@
 # Brahmanda
 
-**A Vedic Universe Simulation Engine** — a self-evolving research tool that spawns a living universe following ancient Hindu cosmological architecture, powered by LLM agents.
+**A Vedic Universe Simulation Engine** -- a self-evolving research tool that spawns a living universe following ancient Hindu cosmological architecture, powered by LLM agents.
 
-> *"Ananta Koti Brahmanda" — Infinite millions of universes*
+> *"Ananta Koti Brahmanda" -- Infinite millions of universes*
 
 ## What is this?
 
-Brahmanda simulates a single universe cycle (one "breath of Vishnu") where conscious souls are born, live, love, fight, innovate, form ideologies, build civilizations, and die — driven by the same forces described in ancient Sanskrit texts: karma, dharma, the five vices (Arishadvarga), and the cosmic cycles of the Yugas.
+Brahmanda simulates a single universe cycle (one "breath of Vishnu") where conscious souls are born, live, love, fight, innovate, form ideologies, build civilizations, and die -- driven by the same forces described in ancient Sanskrit texts: karma, dharma, the five vices (Arishadvarga), and the cosmic cycles of the Yugas.
 
 **No hard bounds.** Population, lifespan, death, and civilization all emerge from one principle: *resources are finite, souls need Prana (life force) to survive.*
+
+**Every run is a unique universe.** A built-in randomizer shuffles the laws of physics (prana rates, karma scores, yuga parameters, tech tree, and 70+ other constants) at startup using a reproducible seed.
 
 The goal: study **emergent patterns** (do civilizations and belief systems arise?) and **simulation signatures** (do the souls notice they're in a simulation?).
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                 ATMAN (Soul Needs)                   │
-│  Moksha · Belonging · Purpose · Love · Alienation    │
-├─────────────────────────────────────────────────────┤
-│              CIVILIZATION ENGINE                     │
-│  Knowledge · Innovation · Culture · Ideology · Power │
-├─────────────────────────────────────────────────────┤
-│              POTENTIAL (0.01% Spark)                  │
-│  Rare souls → Sage or Tyrant (environment decides)   │
-├─────────────────────────────────────────────────────┤
-│              TRINITY (Orchestrators)                  │
-│  Brahma (create) · Vishnu (maintain) · Shiva (destroy)│
-├─────────────────────────────────────────────────────┤
-│              AGENTS                                   │
-│  Souls (LLM) · Devas (natural laws) · Asuras (chaos) │
-├──────────────┬──────────────┬───────────────────────┤
-│   Svarga     │   Bhu-loka   │    Patala              │
-│  (Celestial) │  (Physical)  │  (Subterranean)        │
-├──────────────┴──────────────┴───────────────────────┤
-│  Maya (Perception) · Prana (Life Force) · Karma       │
-│  Yuga Clock · Arishadvarga (5 Vices) · Samsara        │
-├─────────────────────────────────────────────────────┤
-│              OBSERVER (Research Output)               │
-│  Patterns · Signatures · Akashic Records (SQLite)     │
-└─────────────────────────────────────────────────────┘
++---------------------------------------------------------+
+|                 ATMAN (Soul Needs)                       |
+|  Moksha . Belonging . Purpose . Love . Alienation        |
++---------------------------------------------------------+
+|              HOPE <-> DESPAIR SPECTRUM                   |
+|  Contagious . Fatigue . Breaking Point . Group Correction|
++---------------------------------------------------------+
+|              CIVILIZATION ENGINE                         |
+|  Knowledge . Innovation . Culture . Ideology . Power     |
+|  Akashic Memory (cultural inheritance across generations)|
++---------------------------------------------------------+
+|              POTENTIAL (0.01% Spark)                      |
+|  Rare souls -> Sage or Tyrant (environment decides)      |
++---------------------------------------------------------+
+|              TRINITY (Orchestrators)                      |
+|  Brahma (create) . Vishnu (maintain) . Shiva (destroy)   |
++---------------------------------------------------------+
+|              AGENTS                                      |
+|  Souls (LLM) . Devas (natural laws) . Asuras (chaos)    |
++----------------+----------------+-----------------------+
+|   Svarga       |   Bhu-loka     |    Patala             |
+|  (Celestial)   |  (Physical)    |  (Subterranean)       |
++----------------+----------------+-----------------------+
+|  Maya (Perception) . Prana (Life Force) . Karma          |
+|  Yuga Clock . Arishadvarga (5 Vices) . Samsara           |
++---------------------------------------------------------+
+|  RANDOMIZER (unique laws of physics per universe)        |
++---------------------------------------------------------+
+|              OBSERVER (Research Output)                   |
+|  Patterns . Signatures . Akashic Records (SQLite)        |
++---------------------------------------------------------+
 ```
+
+---
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.9+
+- An LLM backend (see options below)
+
+### Install
+
 ```bash
-# Clone
 git clone https://github.com/Saurav12das/Brahmanda.git
 cd Brahmanda
-
-# Setup
-python3 -m venv .venv
-source .venv/bin/activate
-pip install anthropic pydantic rich httpx
-
-# Run with local Ollama (free — requires ollama with qwen2.5)
-python3 -m brahmanda.main
-
-# Run with Claude API
-BRAHMANDA_BACKEND=claude ANTHROPIC_API_KEY=sk-your-key python3 -m brahmanda.main
+pip install -r requirements.txt
 ```
 
-## The Eleven Engines
+### Run
 
-### 1. Prana (Life Force) — No Hard Bounds
-Every soul has Prana (0-100). It drains each tick from vices, entropy, age, and scarcity. Replenished by consuming loka resources. When Prana hits 0, the soul dies. This single mechanic replaces all hardcoded lifespans — **virtue literally keeps you alive longer.**
+```bash
+# Default: uses Ollama with gemma4:31b
+python3 -m brahmanda.main
+
+# With a specific seed (reproducible universe):
+BRAHMANDA_SEED=42 python3 -m brahmanda.main
+
+# Custom soul count:
+BRAHMANDA_SOULS=10 python3 -m brahmanda.main
+```
+
+---
+
+## LLM Backend Setup
+
+Brahmanda works with **any LLM that speaks the OpenAI-compatible API** or the Anthropic API. Here's how to set up each provider:
+
+### Option 1: Ollama (Local, Free) -- Recommended for experimentation
+
+[Install Ollama](https://ollama.com), then pull a model:
+
+```bash
+# Recommended models (pick one):
+ollama pull gemma4          # ~10GB, good balance of speed and quality
+ollama pull gemma4:31b      # ~19GB, best quality, slower
+ollama pull qwen2.5:14b     # ~9GB, fast, good JSON output
+ollama pull llama3.1:8b     # ~5GB, fastest, decent quality
+
+# Run the simulation:
+OLLAMA_SOUL_MODEL=gemma4 OLLAMA_TRINITY_MODEL=gemma4 python3 -m brahmanda.main
+```
+
+**Tips for Ollama:**
+- Smaller models (7-8B) are faster but produce simpler soul decisions
+- Larger models (14-31B) produce richer emergent behavior but are slower
+- If you see timeouts, try a smaller model or reduce `BRAHMANDA_SOULS`
+
+### Option 2: Anthropic Claude API
+
+```bash
+export BRAHMANDA_BACKEND=claude
+export ANTHROPIC_API_KEY=sk-ant-your-key-here
+
+python3 -m brahmanda.main
+```
+
+Uses `claude-haiku-4-5-20251001` by default (fast and cheap). To change models, edit `CLAUDE_SOUL_MODEL` and `CLAUDE_TRINITY_MODEL` in `brahmanda/config.py`.
+
+### Option 3: OpenAI-compatible APIs (GPT, Grok, Groq, Together, etc.)
+
+Brahmanda's Ollama backend works with **any OpenAI-compatible endpoint**. Just point the Ollama URL to your provider:
+
+**OpenAI:**
+```bash
+# You'll need an OpenAI-compatible proxy or use LiteLLM:
+pip install litellm
+litellm --model gpt-4o-mini --port 11434
+
+OLLAMA_URL=http://localhost:11434 python3 -m brahmanda.main
+```
+
+**Grok (xAI):**
+```bash
+# Use LiteLLM as a proxy:
+pip install litellm
+export XAI_API_KEY=your-grok-key
+litellm --model xai/grok-2 --port 11434
+
+OLLAMA_URL=http://localhost:11434 python3 -m brahmanda.main
+```
+
+**Groq (ultra-fast inference):**
+```bash
+pip install litellm
+export GROQ_API_KEY=your-groq-key
+litellm --model groq/llama-3.3-70b-versatile --port 11434
+
+OLLAMA_URL=http://localhost:11434 python3 -m brahmanda.main
+```
+
+**Together AI / Fireworks / any OpenAI-compatible provider:**
+```bash
+pip install litellm
+export TOGETHER_API_KEY=your-key  # or FIREWORKS_API_KEY, etc.
+litellm --model together_ai/meta-llama/Llama-3.3-70B-Instruct --port 11434
+
+OLLAMA_URL=http://localhost:11434 python3 -m brahmanda.main
+```
+
+**LM Studio (local GUI):**
+```bash
+# 1. Download LM Studio from https://lmstudio.ai
+# 2. Load any model and start the local server (default port 1234)
+OLLAMA_URL=http://localhost:1234 python3 -m brahmanda.main
+```
+
+### Model Recommendations
+
+| Provider | Model | Speed | Quality | Cost |
+|----------|-------|-------|---------|------|
+| Ollama | `gemma4` | Fast | Good | Free |
+| Ollama | `gemma4:31b` | Slow | Excellent | Free |
+| Ollama | `qwen2.5:14b` | Fast | Good | Free |
+| Anthropic | `claude-haiku-4-5` | Very fast | Excellent | ~$0.01/run |
+| Groq | `llama-3.3-70b` | Ultra fast | Excellent | Free tier |
+| xAI | `grok-2` | Fast | Excellent | Pay per use |
+| Together | `Llama-3.3-70B` | Fast | Excellent | Pay per use |
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BRAHMANDA_BACKEND` | `ollama` | LLM backend: `ollama` or `claude` |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama (or compatible) API URL |
+| `OLLAMA_SOUL_MODEL` | `gemma4:31b` | Model for soul decisions |
+| `OLLAMA_TRINITY_MODEL` | `gemma4:31b` | Model for Brahma/Vishnu/Shiva |
+| `ANTHROPIC_API_KEY` | (none) | Required if using Claude backend |
+| `BRAHMANDA_SEED` | (random) | Reproducible universe seed |
+| `BRAHMANDA_SOULS` | `5` | Initial number of souls |
+| `BRAHMANDA_DB` | `brahmanda.db` | SQLite database path |
+
+---
+
+## The Twelve Engines
+
+### 1. Prana (Life Force) -- No Hard Bounds
+Every soul has Prana (0-100). It drains each tick from vices, entropy, age, and scarcity. Replenished by consuming loka resources. When Prana hits 0, the soul dies. **Virtue literally keeps you alive longer.**
 
 ### 2. Arishadvarga (Five Vices)
 Every soul carries five inner enemies that pull them toward darkness:
@@ -77,166 +210,89 @@ Every soul carries five inner enemies that pull them toward darkness:
 | Attachment | Moha | Clinging, fear of change |
 | Ego | Ahamkara | Domination, deception |
 
-Vices are amplified in darker Yugas (0.5x in Satya, 1.5x in Kali) and dampened by culture. They drain Prana — a maximally corrupt soul burns through life force 2.5x faster than a virtuous one.
+Vices are amplified in darker Yugas and dampened by culture and hope.
 
-### 3. Civilization Engine
-- **Knowledge** — shared, anti-rivalrous, grows with teaching, decays with entropy
-- **Innovation** — unlocks resource multipliers through a branching tech tree (see below)
-- **Culture** — art and empathy dampen vices for the entire loka
-- **Ideology** — 8 belief systems (Dharma, Artha, Kama, Moksha, Ahimsa, Shakti, Maya, Karma) spread by teachers with 30% memetic drift
-- **Power** — resources + ego = influence, influential souls tax others
+### 3. Hope / Despair Spectrum
+Every soul carries a hope value from -1.0 (deep despair) to +1.0 (high hope):
 
-### 3a. Tech Tree (Branching Innovation)
-Unlike a linear progression, innovations branch and compound. Each discovery has prerequisites, knowledge requirements, and stacks multiple effects:
+- **Hope** slows prana drain, dampens vices, amplifies virtuous actions
+- **Hope fatigue** -- above 0.5, benefits diminish. Above 0.7, complacency sets in (souls stop striving)
+- **Despair breaking point** -- below -0.5, vices spike exponentially. Below -0.7, souls become capable of extreme evil
+- **Contagion** -- hope/despair spreads between bonded souls with diminishing returns, hard-capped at +/-0.8
+- **Group correction** -- if an entire loka drifts past +/-0.6, a gentle regression prevents runaway spirals
 
-| Tier | Innovations | Effects |
-|------|------------|---------|
-| 0 (Primal) | Fire, Stone Tools, Language | Base resource/prana/culture multipliers |
-| 1+ (Advanced) | Agriculture, Wheel, Metallurgy, Engineering, Medicine… | Compound effects on resources, prana efficiency, truth visibility, culture, ideology spread |
+### 4. Civilization Engine
+- **Knowledge** -- shared, anti-rivalrous, grows with teaching, decays with entropy
+- **Innovation** -- branching tech tree with compounding effects
+- **Culture** -- art and empathy dampen vices for the entire loka
+- **Ideology** -- 8 belief systems spread by teachers with memetic drift
+- **Power** -- resources + ego = influence, influential souls tax others
+- **Akashic Memory** -- loka-level cultural memory that accumulates discoveries, inventions, and elder teachings. Inherited by every newborn and reborn soul, enabling knowledge to compound across generations
 
-A soul's chance to innovate depends on their skills and the loka's existing knowledge — **discoveries accelerate further discoveries.**
+### 5. Soul Potential (The 0.01% Spark)
+Every soul is born with random potential. Whether it manifests positively or negatively depends entirely on environment: society, peers, and relationships. The same soul becomes a sage in a nurturing world or a tyrant in a hostile one.
 
-### 4. Soul Potential (The 0.01% Spark)
-Every soul is born with random potential (exponential distribution):
-- 91% ordinary
-- 8.9% notable
-- 0.79% high (1 in 125)
-- 0.063% extraordinary (1 in 1,600)
+**15 manifestation types** -- from Rishi (Great Sage) to Mrityudoot (Death Bringer).
 
-Whether potential manifests positively or negatively depends on environment: society (culture/knowledge), peers (average karma), and relationships. The same high-potential soul becomes a sage in a nurturing world or a tyrant in a hostile one.
+### 6. Atman (Soul Needs)
+Three existential needs beyond survival: **Moksha** (transcendence), **Belonging** (community), **Purpose** (meaning). When all three fail, the soul becomes alienated -- vices spike, driving conflict.
 
-**Positive Manifestations:**
+**Love & Destiny**: Compatible soul pairs form bonds. Deep bonds create new souls -- children who inherit traits, vices, hope, and family memories from both parents.
 
-| Title | Role | Effect |
-|-------|------|--------|
-| Rishi (Great Sage) | Knowledge radiates to all | Loka-wide knowledge boost |
-| Vaidya (Healer) | Restores life force | Prana recovery for the weak |
-| Acharya (Master Teacher) | Ideas spread across realm | Accelerated ideology/knowledge spread |
-| Shilpi (Master Artisan) | Creates beauty and utility | Culture + resource boost |
-| Kavi (Great Poet) | Elevates civilization's soul | Major culture uplift |
-| Ganita (Mathematician) | Unlocks nature's patterns | Innovation chance multiplier |
-| Dharmarakshak (Protector) | Reduces chaos | Entropy dampening |
-| Vanijya (Trade Master) | Enriches everyone | Resource multiplier |
+### 7. Samsara (Rebirth + Evolution)
+When a soul dies, it is reborn with karma carryover, vice mutations, a past-life memory echo, and cultural knowledge inherited from the Akashic Memory of their birth loka.
 
-**Negative Manifestations:**
+### 8. Discovery Engine
+Souls observe patterns and formulate theories. When a theory matches an actual game mechanic, it becomes a validated discovery. **12 discoverable truths**, including the ultimate: *simulation_awareness* -- a soul realizing it exists inside a constructed reality.
 
-| Title | Role | Effect |
-|-------|------|--------|
-| Asura Raja (Demon King) | Spreads chaos | Entropy + vice amplification |
-| Chora (Master Thief) | Drains resources with cunning | Resource drain |
-| Mayavi (Grand Deceiver) | Spreads corrupted beliefs | Ideology corruption |
-| Krodhi (Wrath Incarnate) | Unleashes violence | Conflict escalation |
-| Lobhi (Hoarder Supreme) | Concentrates wealth | Resource inequality spike |
-| Viplava (Revolutionary) | Burns old order | Structure dissolution |
-| Mrityudoot (Death Bringer) | Plague and suffering | Prana drain across loka |
+### 9. Emergent Science
+Souls can found entirely new fields of science by combining existing innovations and discoveries. Each run produces a unique scientific tradition -- two universes will never develop the same tree.
 
-### 5. Atman (Soul Needs)
-Beyond survival, every soul has three existential needs:
-- **Moksha** — desire to transcend the cycle
-- **Belonging** — need for community and connection
-- **Purpose** — feeling that existence matters
+### 10. Maya (Perception Rendering)
+Each soul sees a filtered view of the universe based on their loka, karma, yuga, and hope level. High-karma souls in Satya Yuga see reality clearly. Low-karma souls in Kali Yuga are nearly blind.
 
-When all three fail, the soul becomes **alienated** — vices spike (especially wrath), driving conflict against society. This models radicalization.
+### 11. Agents (Devas, Asuras, Souls)
+- **Souls (LLM-driven)** -- make decisions based on perceived world, vices, hope, and inherited memories
+- **Devas** -- enforce natural laws (resource generation, entropy cleansing, natural disasters)
+- **Asuras** -- chaos agents that corrupt resources, inject false memories, scramble relationships
 
-**Love & Destiny**: Souls randomly encounter each other. Compatible pairs form bonds. Deep bonds (mutual affinity > 20) can create **new souls** — children who inherit traits from both parents with mutation. Love is the ticket to the next generation.
+### 12. Randomized Universe Laws
+Every simulation run randomizes 70+ constants with a reproducible seed: prana rates, karma scores, yuga parameters, tech tree probabilities, hope thresholds, and more. No two universes have the same physics. Print the seed to reproduce any interesting run.
 
-### 6. Samsara (Rebirth + Evolution)
-When a soul dies, it is reborn with:
-- 70% karma carryover
-- Random vice mutations (biased by past-life karma — good souls tend to shed vices)
-- 30% chance of desire mutation (new dark desires can emerge)
-- 20% chance of skill gain/loss
-- Fresh Prana and a new random potential
+---
 
-### 7. Discovery Engine (Soul-Driven Theory Validation)
-Souls can observe the universe and formulate theories about how it works. When a theory matches an actual game mechanic, it becomes a **validated discovery** that unlocks loka-wide effects.
+## Knowledge Inheritance (How Civilizations Compound)
 
-**12 Discoverable Truths:**
+Three layers ensure knowledge persists and compounds across generations:
 
-| Theory | Insight | Unlock Effect |
-|--------|---------|---------------|
-| meditation_heals | Inner stillness restores life force | Prana efficiency boost |
-| cooperation_generates | Cooperation creates resources | Resource multiplier |
-| vices_drain | Inner darkness shortens life | Culture boost (awareness) |
-| entropy_cycles | Universe moves through epochs | Knowledge boost |
-| karma_returns | Actions generate proportional consequence | Karma awareness |
-| rebirth_pattern | Souls carry traces of past lives | Samsara visibility |
-| scarcity_drives_conflict | Resource scarcity is root of conflict | Entropy reduction |
-| knowledge_compounds | Shared knowledge grows faster | Knowledge multiplier |
-| simulation_awareness | "This world may be a simulation" | Truth visibility boost |
-| power_corrupts | Concentrated power accelerates entropy | Culture boost |
-| love_creates | Deep bonds generate new consciousness | Prana efficiency |
-| culture_heals | Art dampens vices across civilizations | Culture multiplier |
+| Layer | Mechanism | When |
+|-------|-----------|------|
+| **Akashic Memory** | Loka-level cultural bank: discoveries, inventions, legends, elder teachings (max 15 entries) | Inherited at birth/rebirth |
+| **Parent -> Child** | Children inherit condensed memories from both parents | Love-generation birth |
+| **Past Life Echo** | Dying soul's most impactful action is condensed into one memory for their next life | Samsara rebirth |
 
-Souls generate theories via LLM reasoning — their guesses are validated against actual mechanics through keyword matching. **The ultimate discovery is simulation_awareness**: a soul realizing it exists inside a constructed reality.
+This means a discovery at tick 5 can influence a soul born at tick 50 through cultural memory -- exactly how real civilizations work.
 
-### 8. Maya (Perception Rendering)
-Maya is not illusion — it's the **measurement system** that processes consciousness into perceived reality. Each soul sees a filtered view of the universe based on:
-
-- **Loka** — which dimension they inhabit
-- **Karma** — positive karma grants +0.2 truth visibility bonus
-- **Yuga** — Satya Yuga: 100% truth visible → Kali Yuga: only 25%
-- **Avatar status** — avatars see full, unfiltered truth
-
-High-karma souls in Satya Yuga see the universe almost as it truly is. Low-karma souls in Kali Yuga are nearly blind to deeper reality.
-
-### 9. Agents (Devas, Asuras, Souls)
-Three agent types drive the simulation:
-
-**Souls (LLM-driven)** — Each soul makes decisions via LLM prompts based on their perceived world (filtered by Maya). They choose actions like meditate, teach, fight, hoard, create art, or explore.
-
-**Devas (Natural Law Deities)** — Enforce cosmic order each tick:
-- **Surya** — Generates resources proportional to the Yuga
-- **Varuna** — Enforces cosmic law, applies karma consequences
-- **Yama** — Judges the dead, determines rebirth parameters
-
-**Asuras (Chaos Engine)** — Spawn based on Yuga (rare in Satya, rampant in Kali). They corrupt resources, amplify vices, and spread entropy — the universe's antibodies testing whether order can survive.
-
-### 10. Emergent Science (Autonomous Knowledge Branching)
-Souls don't just discover predefined mechanics — they can **found entirely new fields of science** that never existed before. This is the auto-branching system:
-
-1. A soul with enough experience, skills, and access to existing discoveries reflects deeply
-2. The LLM proposes a **new field of knowledge** that combines 2+ existing innovations or discoveries
-3. We validate the proposal (real prerequisites, bounded effects, no duplicates)
-4. The new science becomes a **real node** in the knowledge graph, tagged `[S]` in the innovation list
-5. Future souls can build on it — creating further branches no one designed
-
-**Example emergent chains:**
-```
-Medicine + Mathematics → [S] Anatomical Geometry → [S] Surgical Theory
-Fire + Philosophy → [S] Thermodynamic Ethics
-Agriculture + Astronomy → [S] Seasonal Science → [S] Climate Prediction
-Writing + karma_returns → [S] Karmic Record-Keeping
-```
-
-Each simulation run produces a **unique scientific tradition** — two universes will never develop the same tree. Sciences are capped at 10 per loka to prevent runaway cascading, and effects are bounded to moderate levels.
-
-### 11. Observer (Research Output)
-Tracks emergent patterns (alliances, inequality, factions) and simulation signatures (did souls notice they're simulated? did they develop cosmologies?). Now also reports the **emergent science tree** — which fields of knowledge each civilization independently created.
+---
 
 ## The Feedback Web
 
 ```
-RESOURCES ←→ PRANA ←→ SURVIVAL
-    ↑↓                  ↑↓
-INNOVATION ← KNOWLEDGE ← TEACHING ← DISCOVERY (validated theories)
-    ↓                      ↓
-ENTROPY ←→ VICES ←→ CONFLICT ← ALIENATION ← UNMET NEEDS
-    ↑↓                ↑↓            ↑↓
-CULTURE ← ART ← CREATIVE SOULS    ASURAS (chaos amplifiers)
-                                    ↑
-DEVAS (Surya/Varuna/Yama) → COSMIC ORDER → dampens entropy
-MAYA → PERCEPTION FILTER → what souls can see/theorize about
-LOVE → CHILDREN (inherit traits) → NEXT GENERATION
-POWER ← RESOURCES + EGO → TAXATION → INEQUALITY
-IDEOLOGY ← TEACHERS → DRIFT → FACTIONS
-POTENTIAL → ENVIRONMENT → SAGE or TYRANT (15 manifestation types)
-TECH TREE → compound effects → accelerates everything above
-EMERGENT SCIENCE ← souls combine discoveries + innovations → NEW knowledge branches
-    ↓ (other souls build on these → autonomous branching)
+RESOURCES <-> PRANA <-> SURVIVAL
+    |                    |
+INNOVATION <- KNOWLEDGE <- TEACHING <- DISCOVERY
+    |                      |
+ENTROPY <-> VICES <-> CONFLICT <- ALIENATION <- UNMET NEEDS
+    |                  |               |
+CULTURE <- ART     ASURAS         DESPAIR -> EVIL (exponential)
+                                  HOPE -> dampens vices (with fatigue)
+AKASHIC MEMORY -> inherited by newborns -> COMPOUNDS knowledge
+LOVE -> CHILDREN (inherit traits + memories) -> NEXT GENERATION
+POWER <- RESOURCES + EGO -> TAXATION -> INEQUALITY
+RANDOMIZER -> unique physics per universe -> every run is different
 ```
 
-Every arrow is a real mechanic in the code. No hard bounds remain.
+---
 
 ## Dimensions (Lokas)
 
@@ -246,27 +302,15 @@ Every arrow is a real mechanic in the code. No hard bounds remain.
 | **Bhu** | 1x | -50 to 50 | Physical world (default) |
 | **Patala** | 0.5x | -200 to 0 | High-tech, low dharma |
 
-Carrying capacity is resource-driven — no population caps.
-
-## Configuration
-
-```bash
-# LLM Backend
-BRAHMANDA_BACKEND=ollama      # or "claude"
-OLLAMA_SOUL_MODEL=qwen2.5:14b # or qwen2.5:7b for faster runs
-
-# Simulation scale (in brahmanda/config.py)
-TICKS_PER_YUGA = {"satya": 40, "treta": 30, "dvapara": 20, "kali": 10}
-INITIAL_SOUL_COUNT = 12
-```
+---
 
 ## Inspired By
 
-- **Vedas** — Multiverse (Ananta Koti Brahmanda), Maya as rendering engine
-- **Puranas** — Yuga cycles, 14 Lokas, Vishnu's breathing, Avatar protocol
-- **Mahabharata** — Karma, dharma, Arishadvarga, samsara
-- **Simulation Theory** — "Are we living in a simulation?"
-- **Lotka-Volterra** — Population dynamics through resource competition
+- **Vedas** -- Multiverse (Ananta Koti Brahmanda), Maya as rendering engine
+- **Puranas** -- Yuga cycles, 14 Lokas, Vishnu's breathing, Avatar protocol
+- **Mahabharata** -- Karma, dharma, Arishadvarga, samsara
+- **Simulation Theory** -- "Are we living in a simulation?"
+- **Lotka-Volterra** -- Population dynamics through resource competition
 
 ## Share Your Results
 
@@ -276,8 +320,10 @@ Run the simulation and share what emerged:
 - Did love create a next generation?
 - Did alienated souls turn against society?
 - Did anyone notice they were in a simulation?
+- What sciences did your universe invent?
+- How did hope and despair shape the civilization?
 
-Open an issue with your Observer report — let's compare universes.
+Open an issue with your Observer report -- let's compare universes.
 
 ## License
 

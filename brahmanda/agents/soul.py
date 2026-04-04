@@ -12,7 +12,7 @@ import re
 
 import anthropic
 
-from brahmanda.config import MAX_CONCURRENT_SOULS, SOUL_ACTIONS, SOUL_MODEL
+from brahmanda.config import LAWS, MAX_CONCURRENT_SOULS, SOUL_ACTIONS, SOUL_MODEL
 from brahmanda.db.models import SoulState
 from brahmanda.llm import LLMClient
 
@@ -35,13 +35,8 @@ You must roleplay authentically — if your greed is high, you WANT to hoard eve
 If your wrath is high, you get angry and fight. Do NOT always choose the moral option.
 Be human. Be flawed. Let your vices speak.
 
-IMPORTANT: Respond with ONLY a valid JSON object. No other text.
-{
-  "action": "<one of the available actions>",
-  "target": "<name of another soul, or null if no target>",
-  "reasoning": "<brief inner thought — why you chose this, including any vice that influenced you>",
-  "dialogue": "<what you say out loud, or null if silent>"
-}
+CRITICAL: Respond with ONLY a JSON object. No markdown, no explanation, no backticks.
+{"action": "<one of the available actions>", "target": "<name or null>", "reasoning": "<1 sentence>", "dialogue": "<short or null>"}
 """
 
 
@@ -81,6 +76,18 @@ def _build_soul_prompt(soul: SoulState, rendered_view: dict) -> str:
     )
     dominant = max(vices or {"kama": k.kama}, key=lambda x: vices.get(x, 0) if vices else 0)
 
+    # Hope/Despair state description
+    if soul.hope > 0.7:
+        hope_desc = f"COMPLACENT (hope={soul.hope:+.2f}) — everything will work out, why struggle?"
+    elif soul.hope > 0.3:
+        hope_desc = f"Hopeful (hope={soul.hope:+.2f}) — the future seems bright"
+    elif soul.hope > -0.2:
+        hope_desc = f"Uncertain (hope={soul.hope:+.2f}) — the future is unclear"
+    elif soul.hope > LAWS["despair_breaking_point"]:
+        hope_desc = f"Discouraged (hope={soul.hope:+.2f}) — little seems worth the effort"
+    else:
+        hope_desc = f"DESPAIRING (hope={soul.hope:+.2f}) — everything is pointless, nothing left to lose"
+
     prana = rendered_view.get('your_prana', soul.prana)
     prana_status = rendered_view.get('prana_status', 'unknown')
 
@@ -103,12 +110,14 @@ YOUR INNER DEMONS (these pull you — listen to them):
 {vice_desc}
   >> Your dominant vice is {dominant.upper()} — it whispers loudest.
 
-Your memories:
+Your memories and inherited knowledge:
 {memories_desc}
 {relationships_desc}
 
 Nearby souls:
 {nearby_desc}
+
+Your inner state: {hope_desc}
 
 Available actions: {', '.join(SOUL_ACTIONS)}
 
@@ -117,32 +126,57 @@ What do you do? Let your vices compete with your virtues. Be honest about what y
 
 def _parse_soul_response(response_text: str) -> dict:
     """Parse LLM response into action dict. Handles messy outputs gracefully."""
-    # Try to extract JSON from the response
+    # Strip markdown code fences (```json ... ```)
+    cleaned = re.sub(r'```(?:json)?\s*', '', response_text).strip()
+
+    # Strategy 1: Try the full greedy JSON match (handles nested braces in strings)
     try:
-        # Look for JSON block
-        match = re.search(r'\{[^{}]*\}', response_text, re.DOTALL)
+        match = re.search(r'\{.*\}', cleaned, re.DOTALL)
         if match:
-            return json.loads(match.group())
+            parsed = json.loads(match.group())
+            if "action" in parsed:
+                return parsed
     except json.JSONDecodeError:
         pass
 
-    # Fallback: try to extract action keyword
-    text_lower = response_text.lower()
+    # Strategy 2: Try the conservative non-nested match
+    try:
+        match = re.search(r'\{[^{}]*\}', cleaned, re.DOTALL)
+        if match:
+            parsed = json.loads(match.group())
+            if "action" in parsed:
+                return parsed
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 3: Extract key fields from truncated/malformed JSON
+    try:
+        action_match = re.search(r'"action"\s*:\s*"([^"]+)"', cleaned)
+        target_match = re.search(r'"target"\s*:\s*"([^"]*)"', cleaned)
+        reasoning_match = re.search(r'"reasoning"\s*:\s*"([^"]*)', cleaned)
+        if action_match:
+            return {
+                "action": action_match.group(1),
+                "target": target_match.group(1) if target_match else None,
+                "reasoning": reasoning_match.group(1)[:200] if reasoning_match else "truncated",
+                "dialogue": None,
+            }
+    except Exception:
+        pass
+
+    # Strategy 4: Find any action keyword in raw text
+    text_lower = cleaned.lower()
     for action in SOUL_ACTIONS:
         if action in text_lower:
             return {
                 "action": action,
                 "target": None,
-                "reasoning": response_text[:200],
+                "reasoning": cleaned[:200],
                 "dialogue": None,
             }
 
-    return {
-        "action": "neutral",
-        "target": None,
-        "reasoning": "Could not decide.",
-        "dialogue": None,
-    }
+    # All parsing failed — return None so caller uses deterministic fallback
+    return None
 
 
 async def decide(
@@ -162,10 +196,15 @@ async def decide(
         )
         raw_text = response.text
         result = _parse_soul_response(raw_text)
-        result["raw"] = raw_text
-        return result
+        if result is not None:
+            result["raw"] = raw_text
+            return result
+        # LLM responded but output was unparseable — use deterministic fallback
+        fallback = _deterministic_decision(soul, rendered_view)
+        fallback["raw"] = f"[parse_failed] {raw_text[:200]}"
+        return fallback
     except Exception as e:
-        # LLM failed — use deterministic fallback
+        # LLM failed (timeout, network, etc.) — use deterministic fallback
         return _deterministic_decision(soul, rendered_view)
 
 
@@ -211,26 +250,50 @@ def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
     moha = vices.get("moha", soul.klesha.moha)
     ahamkara = vices.get("ahamkara", soul.klesha.ahamkara)
 
+    hope = rendered_view.get("your_hope", soul.hope)
+
+    # Hope fatigue: past onset, virtuous motivation drops
+    hope_benefit = max(0, hope)
+    fatigue_onset = LAWS["hope_fatigue_onset"]
+    if hope_benefit > fatigue_onset:
+        hope_benefit = fatigue_onset * 0.5  # complacency caps virtue boost
+
+    # Modulation factors
+    virtue_mult = 1.0 + hope_benefit * (LAWS["hope_virtue_multiplier"] - 1.0)
+
+    # Despair evil: exponential past breaking point
+    despair_mult = 1.0
+    if hope < LAWS["despair_breaking_point"]:
+        excess = abs(hope) - abs(LAWS["despair_breaking_point"])
+        despair_mult = 1.0 + (excess ** 0.5) * 2.0
+
     # Base virtuous weights (what dharma wants)
     weights = {
-        "cooperate": 2, "meditate": 2, "share": 2, "teach": 2,
-        "create": 2, "trade": 2, "explore": 1, "neutral": 1,
+        "cooperate": int(2 * virtue_mult), "meditate": int(2 * virtue_mult),
+        "share": int(2 * virtue_mult), "teach": int(2 * virtue_mult),
+        "create": int(2 * virtue_mult), "trade": 2, "explore": 1, "neutral": 1,
     }
+
+    # Hope fatigue — high hope makes souls lazy
+    if hope > 0.7:
+        complacency = int((hope - 0.7) * 20)
+        weights["neutral"] += complacency
+        weights["explore"] = max(0, weights["explore"] - complacency // 2)
 
     # VICE-DRIVEN WEIGHTS — the five enemies pull toward darkness
     # Kama (lust) → seek pleasure, distraction, avoid discipline
     weights["neutral"] += int(kama * 4)       # hedonistic idleness
     weights["trade"] += int(kama * 3)         # acquiring pleasures
-    weights["hoard"] = weights.get("hoard", 0) + int(kama * 2)
+    weights["hoard"] = weights.get("hoard", 0) + int(kama * 2 * despair_mult)
 
     # Krodha (wrath) → fight, destroy
-    weights["fight"] = weights.get("fight", 0) + int(krodha * 8)
-    weights["steal"] = weights.get("steal", 0) + int(krodha * 3)
+    weights["fight"] = weights.get("fight", 0) + int(krodha * 8 * despair_mult)
+    weights["steal"] = weights.get("steal", 0) + int(krodha * 3 * despair_mult)
     weights["cooperate"] = max(1, weights["cooperate"] - int(krodha * 3))
 
     # Lobha (greed) → hoard, steal, never share
-    weights["hoard"] = weights.get("hoard", 0) + int(lobha * 7)
-    weights["steal"] = weights.get("steal", 0) + int(lobha * 5)
+    weights["hoard"] = weights.get("hoard", 0) + int(lobha * 7 * despair_mult)
+    weights["steal"] = weights.get("steal", 0) + int(lobha * 5 * despair_mult)
     weights["share"] = max(1, weights["share"] - int(lobha * 4))
     weights["trade"] += int(lobha * 2)
 
@@ -241,14 +304,20 @@ def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
         if target_affinity > 0:
             weights["cooperate"] += int(moha * 5)   # cling to friends
         else:
-            weights["fight"] = weights.get("fight", 0) + int(moha * 3)  # hostile to strangers
+            weights["fight"] = weights.get("fight", 0) + int(moha * 3 * despair_mult)  # hostile to strangers
     weights["explore"] = max(0, weights["explore"] - int(moha * 3))  # fear of the unknown
 
     # Ahamkara (ego) → dominate, refuse help, need to be superior
-    weights["fight"] = weights.get("fight", 0) + int(ahamkara * 5)
-    weights["deceive"] = weights.get("deceive", 0) + int(ahamkara * 4)
+    weights["fight"] = weights.get("fight", 0) + int(ahamkara * 5 * despair_mult)
+    weights["deceive"] = weights.get("deceive", 0) + int(ahamkara * 4 * despair_mult)
     weights["teach"] = max(1, weights["teach"] - int(ahamkara * 2))   # ego doesn't teach
     weights["meditate"] = max(1, weights["meditate"] - int(ahamkara * 3))  # ego won't be still
+
+    # Deep despair unlocks extreme actions
+    if hope < -0.7:
+        weights["fight"] = weights.get("fight", 0) + int(6 * despair_mult)
+        weights["deceive"] = weights.get("deceive", 0) + int(5 * despair_mult)
+        weights["steal"] = weights.get("steal", 0) + int(4 * despair_mult)
 
     # Desire-based adjustments (virtuous pull)
     for desire in soul.desires:

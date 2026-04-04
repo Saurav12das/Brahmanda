@@ -24,7 +24,7 @@ import random
 import re
 from dataclasses import dataclass, field
 
-from brahmanda.config import SOUL_MODEL
+from brahmanda.config import LAWS, SOUL_MODEL
 from brahmanda.db.models import Event, LokaState, SoulState
 from brahmanda.llm import LLMClient
 
@@ -135,11 +135,11 @@ class EmergentScienceEngine:
         # --- Gate conditions ---
         # Need enough base innovations (at least 3 from tech tree or prior emergent)
         all_innovations = self.get_all_innovation_names(loka)
-        if len(all_innovations) < 3:
+        if len(all_innovations) < int(LAWS["esci_min_innovations"]):
             return events
 
         # Need at least 2 discoveries
-        if len(discoveries) < 2:
+        if len(discoveries) < int(LAWS["esci_min_discoveries"]):
             return events
 
         # Soul needs relevant skills
@@ -148,15 +148,15 @@ class EmergentScienceEngine:
             return events
 
         # Soul needs enough experience
-        if soul.age < 20 or soul.lives < 2:
+        if soul.age < int(LAWS["esci_age_req"]) or soul.lives < int(LAWS["esci_lives_req"]):
             return events
 
         # 0.5% chance per tick for eligible souls
-        if random.random() > 0.005:
+        if random.random() > LAWS["esci_attempt_chance"]:
             return events
 
         # Cap emergent sciences per loka to prevent explosion
-        if len(self.get_loka_sciences(loka_key)) >= 10:
+        if len(self.get_loka_sciences(loka_key)) >= int(LAWS["esci_max_per_loka"]):
             return events
 
         # --- Build the LLM prompt ---
@@ -187,6 +187,8 @@ class EmergentScienceEngine:
                 max_tokens=400,
             )
             raw = response.text
+            from brahmanda.llm import strip_markdown_fences
+            raw = strip_markdown_fences(raw)
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if not match:
                 return events

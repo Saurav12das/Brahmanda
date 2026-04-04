@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import random
 
+from brahmanda.config import LAWS
 from brahmanda.db.models import Event, LokaState, SoulState
 
 
@@ -122,14 +123,14 @@ def check_manifestation(
 
     if soul.potential_manifested is not None:
         return events  # already manifested this life
-    if abs(soul.potential) < 0.1:
+    if abs(soul.potential) < LAWS["potential_min_threshold"]:
         return events  # too ordinary
-    if soul.age < 20:
+    if soul.age < int(LAWS["potential_age_req"]):
         return events  # too young
 
     # Manifestation probability
     age_factor = min(2.0, soul.age / 40)  # peaks at age 80
-    chance = abs(soul.potential) * 0.001 * age_factor
+    chance = abs(soul.potential) * LAWS["potential_chance_multiplier"] * age_factor
 
     if random.random() >= chance:
         return events
@@ -216,12 +217,12 @@ def check_manifestation(
 
     # The soul gains karma/skills from manifestation
     if direction_score > 0:
-        soul.karma = min(200, soul.karma + 20)
+        soul.karma = min(200, soul.karma + int(LAWS["potential_karma_reward"]))
         if manifest["title"] not in (soul.skills or []):
             soul.skills.append(manifest["title"].split("(")[1].rstrip(")").lower()
                                if "(" in manifest["title"] else "greatness")
     else:
-        soul.karma = max(-200, soul.karma - 20)
+        soul.karma = max(-200, soul.karma - int(LAWS["potential_karma_reward"]))
 
     events.append(Event(
         tick=tick, event_type="potential_manifest", loka=loka.id,

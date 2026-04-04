@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 
-from brahmanda.config import LOKA_CONFIG, TRINITY_MODEL, LokaID
+from brahmanda.config import LOKA_CONFIG, LAWS, TRINITY_MODEL, LokaID
 from brahmanda.db.models import Event, Klesha, SoulState, _uid
 from brahmanda.engine.maya import Maya
 from brahmanda.llm import LLMClient
@@ -47,7 +47,7 @@ class VishnuProtocol:
     def should_intervene(self, maya: Maya) -> bool:
         """Check based on CONDITIONS, not a timer."""
         # Cooldown: don't check more than once every 20 ticks
-        if maya.tick - self._last_check_tick < 20:
+        if maya.tick - self._last_check_tick < int(LAWS["vishnu_cooldown"]):
             return False
 
         living = [s for s in maya.souls.values() if s.alive]
@@ -55,7 +55,7 @@ class VishnuProtocol:
             return False
 
         # Condition 1: Any soul critically low on prana (starvation crisis)
-        starving = any(s.prana < 10 for s in living)
+        starving = any(s.prana < LAWS["vishnu_starvation_threshold"] for s in living)
 
         # Condition 2: Average karma below yuga-scaled threshold
         avg_karma = sum(s.karma for s in living) / len(living)
@@ -64,7 +64,7 @@ class VishnuProtocol:
 
         # Condition 3: Any loka entropy dangerously high
         entropy_crisis = any(
-            maya.loka_manager.get_loka(lid).entropy > 0.85
+            maya.loka_manager.get_loka(lid).entropy > LAWS["vishnu_entropy_crisis"]
             for lid in maya.loka_manager.lokas
         )
 
@@ -85,7 +85,7 @@ class VishnuProtocol:
         # Resource availability check — can the universe sustain another soul?
         total_resources = sum(l.resources for l in maya.loka_manager.lokas.values())
         resources_per_soul = total_resources / max(1, len(living_souls))
-        can_sustain_more = resources_per_soul > 5
+        can_sustain_more = resources_per_soul > LAWS["vishnu_sustainability_threshold"]
 
         try:
             state_summary = (
@@ -107,6 +107,8 @@ class VishnuProtocol:
                 prompt=state_summary, max_tokens=500,
             )
             raw = response.text
+            from brahmanda.llm import strip_markdown_fences
+            raw = strip_markdown_fences(raw)
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if not match:
                 return events
@@ -125,11 +127,12 @@ class VishnuProtocol:
                 avatar = SoulState(
                     id=_uid(),
                     name=avatar_data.get("name", f"Avatar-{self.avatars_deployed + 1}"),
-                    karma=100,
+                    karma=int(LAWS["vishnu_avatar_karma"]),
                     loka=LokaID(avatar_data.get("target_loka", 7)),
                     desires=["restore balance", avatar_data.get("mission", "preserve dharma")],
                     skills=["divine_power", "wisdom", "compassion"],
-                    resources=50,
+                    resources=int(LAWS["vishnu_avatar_resources"]),
+                    hope=0.8,
                     prana=100.0,
                     klesha=Klesha(kama=0.1, krodha=0.1, lobha=0.1, moha=0.1, ahamkara=0.1),
                     is_avatar=True,

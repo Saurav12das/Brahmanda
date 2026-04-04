@@ -4,18 +4,11 @@ from __future__ import annotations
 
 import random
 
+import brahmanda.config as cfg
 from brahmanda.config import (
     DEFAULT_LOKA,
     KARMA_ACTIONS,
-    KARMA_DECAY_BASE_RATE,
-    PRANA_AGE_DRAIN_ONSET,
-    PRANA_AGE_DRAIN_RATE,
-    PRANA_BASE_DRAIN,
-    PRANA_ENTROPY_DRAIN_FACTOR,
-    PRANA_MAX,
-    PRANA_REPLENISH_RATE,
-    PRANA_RESOURCE_CONVERSION,
-    PRANA_VICE_DRAIN_FACTOR,
+    LAWS,
     SAMSARA_KARMA_RANGES,
     LokaID,
     YugaType,
@@ -42,7 +35,7 @@ class KarmaEngine:
 
     def decay_karma(self, soul: SoulState, loka_entropy: float, yuga: YugaType) -> None:
         """Karma decays toward 0 — rate scales with entropy, yuga, and vices."""
-        base_rate = KARMA_DECAY_BASE_RATE
+        base_rate = cfg.KARMA_DECAY_BASE_RATE
         entropy_factor = 1.0 + loka_entropy * 2.0
         yuga_factor = {"satya": 0.5, "treta": 0.8, "dvapara": 1.2, "kali": 1.8}[yuga.value]
         vice_factor = 1.0 + soul.klesha.total_darkness * 0.5
@@ -66,20 +59,25 @@ class KarmaEngine:
         """Drain prana each tick. Returns amount drained.
         innovation_efficiency: prana drain reduction from tech tree discoveries.
         """
-        drain = PRANA_BASE_DRAIN
-        drain += soul.klesha.total_darkness * PRANA_VICE_DRAIN_FACTOR
-        drain += loka_entropy * PRANA_ENTROPY_DRAIN_FACTOR
+        drain = cfg.PRANA_BASE_DRAIN
+        drain += soul.klesha.total_darkness * cfg.PRANA_VICE_DRAIN_FACTOR
+        drain += loka_entropy * cfg.PRANA_ENTROPY_DRAIN_FACTOR
 
         # Innovation efficiency — cooking, medicine, yoga reduce drain
         drain = max(0.3, drain - innovation_efficiency)
 
         # Age factor — gradual increase after onset, not a cliff
-        if soul.age > PRANA_AGE_DRAIN_ONSET:
-            drain += (soul.age - PRANA_AGE_DRAIN_ONSET) * PRANA_AGE_DRAIN_RATE
+        if soul.age > cfg.PRANA_AGE_DRAIN_ONSET:
+            drain += (soul.age - cfg.PRANA_AGE_DRAIN_ONSET) * cfg.PRANA_AGE_DRAIN_RATE
 
         # Karma efficiency — positive karma reduces drain (up to 50%)
         karma_efficiency = max(0.5, 1.0 - soul.karma / 400.0)
         drain *= karma_efficiency
+
+        # Hope reduces prana drain; despair accelerates it
+        hope_factor = 1.0 - soul.hope * LAWS["hope_prana_dampening"]
+        hope_factor = max(0.8, min(1.2, hope_factor))  # clamp
+        drain *= hope_factor
 
         # Avatars are more resilient
         if soul.is_avatar:
@@ -90,18 +88,18 @@ class KarmaEngine:
 
     def replenish_prana(self, soul: SoulState, loka_state: LokaState) -> float:
         """Replenish prana by consuming loka resources. Returns amount gained."""
-        deficit = PRANA_MAX - soul.prana
-        want = min(deficit, PRANA_REPLENISH_RATE)
+        deficit = cfg.PRANA_MAX - soul.prana
+        want = min(deficit, cfg.PRANA_REPLENISH_RATE)
         if want <= 0:
             return 0.0
 
         # Resource cost: PRANA_RESOURCE_CONVERSION prana per 1 loka resource
-        resources_needed = int(want / PRANA_RESOURCE_CONVERSION) + 1
+        resources_needed = int(want / cfg.PRANA_RESOURCE_CONVERSION) + 1
         resources_available = max(0, loka_state.resources)
         resources_consumed = min(resources_needed, resources_available)
 
-        prana_gained = min(want, resources_consumed * PRANA_RESOURCE_CONVERSION)
-        soul.prana = min(PRANA_MAX, soul.prana + prana_gained)
+        prana_gained = min(want, resources_consumed * cfg.PRANA_RESOURCE_CONVERSION)
+        soul.prana = min(cfg.PRANA_MAX, soul.prana + prana_gained)
         loka_state.resources -= resources_consumed
         return prana_gained
 
@@ -168,6 +166,14 @@ class KarmaEngine:
             elif soul.skills:
                 soul.skills.pop(random.randint(0, len(soul.skills) - 1))
 
+        # --- Past life echo: condense this life's most important lesson ---
+        past_life_echo = None
+        if soul.memories:
+            # Summarize what this soul learned in their life
+            action_memories = [m for m in soul.memories if "chose to" in m]
+            if action_memories:
+                past_life_echo = f"Past life echo: In a previous life as {soul.name}, I {action_memories[-1].split('I ')[-1] if 'I ' in action_memories[-1] else 'lived and learned'}"
+
         # --- Standard rebirth ---
         from brahmanda.engine.potential import assign_potential
         soul.alive = True
@@ -176,14 +182,34 @@ class KarmaEngine:
         soul.loka = new_loka
         soul.karma = carried_karma
         soul.resources = 10
-        soul.prana = PRANA_MAX  # full life force at rebirth
+        soul.prana = cfg.PRANA_MAX  # full life force at rebirth
         soul.potential = assign_potential()  # new spark each life
         soul.potential_manifested = None
+
+        # Keep last 3 personal memories + past life echo
         soul.memories = soul.memories[-3:]
+        if past_life_echo:
+            soul.memories.insert(0, past_life_echo)
         soul.relationships = {}
         soul.is_avatar = False
         soul.avatar_mission = None
+        # Hope carries over with decay and mutation
+        soul.hope = soul.hope * LAWS["hope_rebirth_carry"] + random.uniform(-0.1, 0.1)
+        soul.hope = max(-1.0, min(1.0, soul.hope))
         return soul
+
+    def inject_akashic_memory(self, soul: SoulState, loka_state) -> None:
+        """Inject loka's cultural memory into a soul (birth or rebirth).
+        This is how civilizations compound knowledge across generations.
+        """
+        if hasattr(loka_state, 'akashic_memory') and loka_state.akashic_memory:
+            # Give the soul up to 3 cultural memories from their birth loka
+            import random as _rng
+            available = [m for m in loka_state.akashic_memory if m not in soul.memories]
+            count = min(3, len(available))
+            if count > 0:
+                inherited = _rng.sample(available, count)
+                soul.memories = inherited + soul.memories
 
     # ------------------------------------------------------------------
     # Action Classification

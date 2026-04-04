@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import random
 
-from brahmanda.config import ACTIVE_LOKAS, LOKA_CONFIG, LokaID, YugaType, YUGA_PARAMS
+from brahmanda.config import ACTIVE_LOKAS, LAWS, LOKA_CONFIG, LokaID, YugaType, YUGA_PARAMS
 from brahmanda.db.models import Event, LokaState, SoulState
 from brahmanda.engine.potential import check_manifestation
 from brahmanda.engine.tech_tree import TechTree
@@ -49,14 +49,14 @@ class CivilizationEngine:
         meditators = sum(1 for s in souls if "meditation" in s.skills)
         creators = sum(1 for s in souls if "crafting" in s.skills or "create" in (s.desires or []))
 
-        growth = (teachers * 0.1 + meditators * 0.05 + creators * 0.08)
+        growth = (teachers * LAWS["civ_teacher_knowledge"] + meditators * LAWS["civ_meditator_knowledge"] + creators * LAWS["civ_creator_knowledge"])
 
         # Knowledge sharing bonus — more souls = faster growth (anti-rivalrous)
         if len(souls) > 1:
-            growth *= (1.0 + len(souls) * 0.05)
+            growth *= (1.0 + len(souls) * LAWS["civ_soul_knowledge_bonus"])
 
         # Entropy erodes knowledge (chaos destroys libraries)
-        decay = loka.entropy * 0.1 * loka.knowledge
+        decay = loka.entropy * LAWS["civ_entropy_knowledge_decay"] * loka.knowledge
 
         net = growth - decay
         loka.knowledge = max(0.1, loka.knowledge + net)
@@ -99,10 +99,10 @@ class CivilizationEngine:
         empaths = sum(1 for s in souls if "empathy" in s.skills or "healing" in s.skills
                       or any("protect" in d for d in s.desires))
 
-        culture_growth = (artists * 0.03 + empaths * 0.02)
+        culture_growth = (artists * LAWS["civ_artist_culture"] + empaths * LAWS["civ_empath_culture"])
 
         # Culture decays with entropy and low population
-        culture_decay = loka.entropy * 0.05 + max(0, (3 - len(souls)) * 0.02)
+        culture_decay = loka.entropy * LAWS["civ_entropy_culture_decay"] + max(0, (3 - len(souls)) * 0.02)
 
         net = culture_growth - culture_decay
         old_culture = loka.culture
@@ -120,7 +120,7 @@ class CivilizationEngine:
 
     def get_vice_dampening(self, loka: LokaState) -> float:
         """Culture reduces vice amplification. Returns a multiplier 0.7-1.0."""
-        return max(0.7, 1.0 - loka.culture * 0.3)
+        return max(1.0 - LAWS["maya_culture_dampening_max"], 1.0 - loka.culture * LAWS["maya_culture_dampening_max"])
 
     # ------------------------------------------------------------------
     # Ideology (memetic drift)
@@ -139,7 +139,7 @@ class CivilizationEngine:
         for teacher in teachers:
             if not teacher.ideology:
                 # Teacher develops an ideology from their desires
-                if random.random() < 0.02:  # 2% chance per tick
+                if random.random() < LAWS["civ_ideology_develop_chance"]:
                     base_ideologies = [i for i in IDEOLOGIES]
                     # Bias toward ideologies matching their personality
                     if teacher.klesha.lobha > 0.6:
@@ -156,12 +156,12 @@ class CivilizationEngine:
                     ))
             else:
                 # 5% chance to spread ideology to a random nearby soul
-                if random.random() < 0.05:
+                if random.random() < LAWS["civ_ideology_spread_chance"]:
                     students = [s for s in souls if s.id != teacher.id and not s.ideology]
                     if students:
                         student = random.choice(students)
                         # Memetic drift: the student's version may mutate
-                        if random.random() < 0.3:
+                        if random.random() < LAWS["civ_ideology_drift_chance"]:
                             # Drift — student reinterprets
                             student.ideology = teacher.ideology.split(" — ")[0] + " — " + random.choice([
                                 "reinterpreted through suffering",
@@ -199,12 +199,12 @@ class CivilizationEngine:
             ego_factor = soul.klesha.ahamkara
             target_influence = resource_factor * ego_factor
             # Gradual shift toward target
-            soul.influence += (target_influence - soul.influence) * 0.1
+            soul.influence += (target_influence - soul.influence) * LAWS["civ_power_influence_rate"]
             soul.influence = max(0.0, min(1.0, soul.influence))
 
         # Power mongers (influence > 0.5) passively tax others
-        power_mongers = [s for s in souls if s.influence > 0.5]
-        subjects = [s for s in souls if s.influence <= 0.3 and s.resources > 2]
+        power_mongers = [s for s in souls if s.influence > LAWS["civ_power_tax_threshold"]]
+        subjects = [s for s in souls if s.influence <= LAWS["civ_power_subject_threshold"] and s.resources > 2]
 
         for pm in power_mongers:
             if not subjects:
@@ -227,6 +227,68 @@ class CivilizationEngine:
         return events
 
     # ------------------------------------------------------------------
+    # Akashic Memory — loka-level cultural inheritance
+    # ------------------------------------------------------------------
+    def update_akashic_memory(self, tick: int, loka: LokaState, souls: list[SoulState], events: list[Event]) -> None:
+        """Record significant events and teachings into the loka's cultural memory.
+        This memory is inherited by newborn and reborn souls — compounding knowledge.
+        Max 15 entries, oldest pruned first.
+        """
+        for event in events:
+            entry = None
+            if event.event_type == "discovery":
+                entry = f"Ancient wisdom: {event.data.get('truth', event.description[:80])}"
+            elif event.event_type == "emergent_science":
+                entry = f"Our scholars founded {event.data.get('field_name', '?')}: {event.data.get('description', '')[:60]}"
+            elif event.event_type == "potential_manifest" and event.data.get("positive"):
+                entry = f"Legend: {event.data.get('soul', '?')} became {event.data.get('manifestation', '?')}"
+            elif event.event_type == "emergent_innovation":
+                entry = f"Invention passed down: {event.data.get('invention', '?')}"
+
+            if entry and entry not in loka.akashic_memory:
+                loka.akashic_memory.append(entry)
+
+        # Teachers deposit condensed lessons
+        for soul in souls:
+            if soul.age > 30 and soul.karma > 20 and len(soul.memories) > 5:
+                # Wise souls contribute one condensed teaching
+                if random.random() < 0.01:  # 1% per tick for eligible elders
+                    teaching = f"Elder {soul.name} taught: '{soul.memories[-1][:60]}'"
+                    if teaching not in loka.akashic_memory:
+                        loka.akashic_memory.append(teaching)
+
+        # Prune to 15 max (keep most recent)
+        if len(loka.akashic_memory) > 15:
+            loka.akashic_memory = loka.akashic_memory[-15:]
+
+    # ------------------------------------------------------------------
+    # Hope-Entropy Interaction
+    # ------------------------------------------------------------------
+    def apply_hope_entropy_interaction(self, loka: LokaState, souls: list[SoulState]) -> list[Event]:
+        """Hope resists entropy; despair accelerates it. Hopeful communities build culture faster."""
+        events = []
+        if not souls:
+            return events
+
+        avg_hope = sum(s.hope for s in souls) / len(souls)
+
+        # Despair amplifies entropy
+        if avg_hope < -0.3:
+            entropy_boost = (abs(avg_hope) - 0.3) * 0.02
+            loka.entropy = min(1.0, loka.entropy + entropy_boost)
+
+        # Hope resists entropy
+        elif avg_hope > 0.3:
+            entropy_reduction = (avg_hope - 0.3) * 0.01
+            loka.entropy = max(0.0, loka.entropy - entropy_reduction)
+
+        # Hopeful communities amplify culture growth
+        if avg_hope > 0.3:
+            loka.culture = min(1.0, loka.culture * (1.0 + avg_hope * 0.1))
+
+        return events
+
+    # ------------------------------------------------------------------
     # Run all civilization systems for a loka
     # ------------------------------------------------------------------
     def process_loka(
@@ -239,7 +301,11 @@ class CivilizationEngine:
         events.extend(self.check_innovation(tick, loka, souls, yuga))
         events.extend(self.apply_culture(loka, souls))
         events.extend(self.apply_ideology_spread(tick, souls))
+        events.extend(self.apply_hope_entropy_interaction(loka, souls))
         events.extend(self.apply_power_dynamics(tick, loka, souls))
+
+        # Update Akashic Memory with significant events
+        self.update_akashic_memory(tick, loka, souls, events)
 
         # Potential manifestation — the rare spark
         if all_souls:

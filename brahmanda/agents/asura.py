@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 
-from brahmanda.config import LokaID, YugaType, YUGA_PARAMS
+from brahmanda.config import LAWS, LokaID, YugaType, YUGA_PARAMS
 from brahmanda.db.models import Event, LokaState, SoulState
 
 
@@ -54,7 +54,7 @@ class AsuraEngine:
 
         if chaos_type == "resource_corruption" and loka_souls:
             # Resources randomly appear or vanish
-            delta = random.choice([-20, -10, 10, 20])
+            delta = random.choice([-int(LAWS["asura_resource_delta_large"]), -int(LAWS["asura_resource_delta_small"]), int(LAWS["asura_resource_delta_small"]), int(LAWS["asura_resource_delta_large"])])
             loka.resources = max(0, loka.resources + delta)
             events.append(Event(
                 tick=tick, event_type="asura_glitch", loka=loka.id,
@@ -81,7 +81,7 @@ class AsuraEngine:
 
         elif chaos_type == "karma_fluctuation" and loka_souls:
             victim = random.choice(loka_souls)
-            noise = random.randint(-15, 15)
+            noise = random.randint(-int(LAWS["asura_karma_noise"]), int(LAWS["asura_karma_noise"]))
             victim.karma = max(-200, min(200, victim.karma + noise))
             events.append(Event(
                 tick=tick, event_type="asura_glitch", loka=loka.id,
@@ -91,7 +91,7 @@ class AsuraEngine:
 
         elif chaos_type == "relationship_scramble" and len(loka_souls) >= 2:
             a, b = random.sample(loka_souls, 2)
-            shift = random.randint(-10, 10)
+            shift = random.randint(-int(LAWS["asura_relationship_shift"]), int(LAWS["asura_relationship_shift"]))
             a.relationships[b.id] = a.relationships.get(b.id, 0) + shift
             events.append(Event(
                 tick=tick, event_type="asura_glitch", loka=loka.id,
@@ -100,7 +100,7 @@ class AsuraEngine:
             ))
 
         elif chaos_type == "perception_fog":
-            loka.entropy = min(1.0, loka.entropy + 0.15)
+            loka.entropy = min(1.0, loka.entropy + LAWS["asura_perception_fog"])
             events.append(Event(
                 tick=tick, event_type="asura_glitch", loka=loka.id,
                 data={"chaos_type": chaos_type, "entropy_added": 0.15},

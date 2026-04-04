@@ -26,7 +26,7 @@ import json
 import random
 import re
 
-from brahmanda.config import SOUL_MODEL, YugaType
+from brahmanda.config import LAWS, SOUL_MODEL, YugaType
 from brahmanda.db.models import Event, LokaState, SoulState
 from brahmanda.llm import LLMClient
 
@@ -158,11 +158,11 @@ class DiscoveryEngine:
         events = []
 
         # Only inquire souls with enough experience
-        if soul.age < 15 or soul.lives < 2:
+        if soul.age < int(LAWS["discovery_age_req"]) or soul.lives < int(LAWS["discovery_lives_req"]):
             return events
 
         # 2% chance per tick for eligible souls
-        if random.random() > 0.02:
+        if random.random() > LAWS["discovery_inquiry_chance"]:
             return events
 
         prompt = INQUIRY_PROMPT.format(
@@ -189,6 +189,8 @@ class DiscoveryEngine:
                 max_tokens=400,
             )
             raw = response.text
+            from brahmanda.llm import strip_markdown_fences
+            raw = strip_markdown_fences(raw)
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if not match:
                 return events
@@ -275,7 +277,7 @@ class DiscoveryEngine:
             if mechanic_name in self.discoveries.get(loka_key, []):
                 continue  # already discovered
             keyword_matches = sum(1 for kw in mechanic["keywords"] if kw in text_lower)
-            if keyword_matches >= 2:  # need at least 2 keyword matches
+            if keyword_matches >= int(LAWS["discovery_keyword_match"]):  # need at least 2 keyword matches
                 return mechanic_name
         return None
 
@@ -358,6 +360,8 @@ Respond with ONLY a JSON object:
                 max_tokens=400,
             )
             raw = response.text
+            from brahmanda.llm import strip_markdown_fences
+            raw = strip_markdown_fences(raw)
             match = re.search(r'\{.*\}', raw, re.DOTALL)
             if not match:
                 return events

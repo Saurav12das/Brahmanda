@@ -23,6 +23,8 @@ class PatternReport:
     deception_rate: float = 0.0
     dominant_actions: list[tuple[str, int]] = field(default_factory=list)
     emergent_groups: list[list[str]] = field(default_factory=list)
+    avg_hope: float = 0.0
+    hope_distribution: dict[str, int] = field(default_factory=dict)
 
 
 class PatternDetector:
@@ -94,6 +96,22 @@ class PatternDetector:
             else:
                 karma_buckets["very_positive"] += 1
         report.karma_distribution = karma_buckets
+
+        # Hope distribution
+        hope_buckets = {"deep_despair": 0, "despair": 0, "neutral": 0, "hopeful": 0, "complacent": 0}
+        for s in living.values():
+            if s.hope < -0.5:
+                hope_buckets["deep_despair"] += 1
+            elif s.hope < -0.2:
+                hope_buckets["despair"] += 1
+            elif s.hope <= 0.3:
+                hope_buckets["neutral"] += 1
+            elif s.hope <= 0.7:
+                hope_buckets["hopeful"] += 1
+            else:
+                hope_buckets["complacent"] += 1
+        report.hope_distribution = hope_buckets
+        report.avg_hope = round(sum(s.hope for s in living.values()) / max(1, len(living)), 2)
 
         # Action frequency analysis
         if self.action_history:

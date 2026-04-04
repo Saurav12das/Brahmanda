@@ -7,7 +7,7 @@ Entropy now scales with population density — more souls = more chaos.
 
 from __future__ import annotations
 
-from brahmanda.config import ACTIVE_LOKAS, LOKA_CONFIG, YUGA_PARAMS, LokaID, YugaType
+from brahmanda.config import ACTIVE_LOKAS, LOKA_CONFIG, LAWS, YUGA_PARAMS, LokaID, YugaType
 from brahmanda.db.models import Event, SoulState
 from brahmanda.engine.maya import Maya
 
@@ -26,14 +26,14 @@ class ShivaProtocol:
 
             # Population density drives entropy (thermodynamics)
             population = len(loka.population)
-            density_factor = population / max(1, base_resources / 10)
+            density_factor = population / max(1, base_resources / LAWS["shiva_entropy_density_divisor"])
             entropy_increase = base_entropy_rate * (1.0 + density_factor)
 
             maya.loka_manager.apply_entropy(loka_id, entropy_increase)
 
             # High entropy degrades resources (chaos destroys infrastructure)
-            if loka.entropy > 0.6:
-                decay = int(loka.resources * 0.05 * loka.entropy)
+            if loka.entropy > LAWS["shiva_decay_threshold"]:
+                decay = int(loka.resources * LAWS["shiva_decay_rate"] * loka.entropy)
                 loka.resources = max(0, loka.resources - decay)
                 if decay > 0:
                     events.append(Event(
@@ -73,6 +73,10 @@ class ShivaProtocol:
             maya.karma_engine.rebirth(soul)
             soul.alive = True
             maya.loka_manager.place_soul(soul)
+
+            # Inject cultural memory from birth loka (Akashic inheritance)
+            birth_loka = maya.loka_manager.get_loka(soul.loka)
+            maya.karma_engine.inject_akashic_memory(soul, birth_loka)
 
             new_klesha = soul.klesha.model_dump()
             vice_changes = {k: round(new_klesha[k] - old_klesha[k], 3)
@@ -125,8 +129,10 @@ class ShivaProtocol:
                     "total_lives": soul.lives, "total_age": soul.lifetime,
                     "final_prana": round(soul.prana, 1),
                     "final_darkness": round(soul.klesha.total_darkness, 2),
+                    "final_hope": round(soul.hope, 2),
                 },
                 description=f"  {soul.name}: karma={soul.karma}, lives={soul.lives}, "
-                            f"prana={soul.prana:.0f}, darkness={soul.klesha.total_darkness:.2f}",
+                            f"prana={soul.prana:.0f}, darkness={soul.klesha.total_darkness:.2f}, "
+                            f"hope={soul.hope:+.2f}",
             ))
         return events

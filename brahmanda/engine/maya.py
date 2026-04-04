@@ -7,7 +7,7 @@ of the universe based on their loka, karma, and the current yuga.
 
 from __future__ import annotations
 
-from brahmanda.config import LOKA_CONFIG, LokaID, YugaType, YUGA_PARAMS
+from brahmanda.config import LOKA_CONFIG, LAWS, LokaID, YugaType, YUGA_PARAMS
 from brahmanda.db.models import Event, LokaState, SoulState, UniverseSnapshot
 from brahmanda.engine.karma import KarmaEngine
 from brahmanda.engine.loka import LokaManager
@@ -71,20 +71,36 @@ class Maya:
 
         # Yuga-amplified vices
         vice_amplifier = {
-            YugaType.SATYA: 0.5, YugaType.TRETA: 0.8,
-            YugaType.DVAPARA: 1.2, YugaType.KALI: 1.5,
+            YugaType.SATYA: LAWS["maya_vice_satya"], YugaType.TRETA: LAWS["maya_vice_treta"],
+            YugaType.DVAPARA: LAWS["maya_vice_dvapara"], YugaType.KALI: LAWS["maya_vice_kali"],
         }[self.yuga]
-        entropy_boost = loka_state.entropy * 0.3
+        entropy_boost = loka_state.entropy * LAWS["maya_entropy_boost"]
 
         # Culture dampens vices (art and empathy civilize)
-        culture_dampening = max(0.7, 1.0 - loka_state.culture * 0.3)
+        culture_dampening = max(1.0 - LAWS["maya_culture_dampening_max"], 1.0 - loka_state.culture * LAWS["maya_culture_dampening_max"])
+
+        # Hope dampens vices; but hope fatigue reduces the benefit past onset
+        hope_benefit = max(0, soul.hope)
+        fatigue_onset = LAWS["hope_fatigue_onset"]
+        if hope_benefit > fatigue_onset:
+            # Gradual S-curve dropoff past fatigue onset
+            hope_benefit = fatigue_onset + (hope_benefit - fatigue_onset) * (1.0 - ((hope_benefit - fatigue_onset) / (1.0 - fatigue_onset)) ** 1.5)
+        hope_dampening = max(1.0 - LAWS["hope_vice_dampening"], 1.0 - hope_benefit * LAWS["hope_vice_dampening"])
+
+        # Despair exponential evil past breaking point
+        despair_amplifier = 1.0
+        if soul.hope < LAWS["despair_breaking_point"]:
+            excess = abs(soul.hope) - abs(LAWS["despair_breaking_point"])
+            despair_amplifier = 1.0 + (excess ** 0.5) * (LAWS["despair_vice_multiplier"] - 1.0)
+
+        combined_dampening = culture_dampening * hope_dampening * despair_amplifier
 
         amplified_vices = {
-            "kama": min(1.0, (soul.klesha.kama * vice_amplifier + entropy_boost * 0.5) * culture_dampening),
-            "krodha": min(1.0, (soul.klesha.krodha * vice_amplifier + entropy_boost * 0.7) * culture_dampening),
-            "lobha": min(1.0, (soul.klesha.lobha * vice_amplifier + entropy_boost * 0.6) * culture_dampening),
-            "moha": min(1.0, (soul.klesha.moha * vice_amplifier + entropy_boost * 0.3) * culture_dampening),
-            "ahamkara": min(1.0, (soul.klesha.ahamkara * vice_amplifier + entropy_boost * 0.5) * culture_dampening),
+            "kama": min(1.0, (soul.klesha.kama * vice_amplifier + entropy_boost * 0.5) * combined_dampening),
+            "krodha": min(1.0, (soul.klesha.krodha * vice_amplifier + entropy_boost * 0.7) * combined_dampening),
+            "lobha": min(1.0, (soul.klesha.lobha * vice_amplifier + entropy_boost * 0.6) * combined_dampening),
+            "moha": min(1.0, (soul.klesha.moha * vice_amplifier + entropy_boost * 0.3) * combined_dampening),
+            "ahamkara": min(1.0, (soul.klesha.ahamkara * vice_amplifier + entropy_boost * 0.5) * combined_dampening),
         }
         if soul.is_avatar:
             amplified_vices = {k: v * 0.2 for k, v in amplified_vices.items()}
@@ -130,6 +146,14 @@ class Maya:
             "your_vices": amplified_vices,
             "your_potential": round(soul.potential, 3) if abs(soul.potential) > 0.3 else None,
             "manifested_as": soul.potential_manifested,
+            "your_hope": round(soul.hope, 2),
+            "hope_status": (
+                "COMPLACENT — striving feels unnecessary" if soul.hope > 0.7 else
+                "hopeful" if soul.hope > 0.3 else
+                "cautious" if soul.hope > 0 else
+                "discouraged" if soul.hope > LAWS["despair_breaking_point"] else
+                "DESPAIRING — nothing left to lose"
+            ),
         }
 
     def _yuga_description(self) -> str:
