@@ -35,6 +35,7 @@ TICKS_PER_YUGA: dict[str, int] = {
 TOTAL_TICKS_PER_MAHAYUGA: int = sum(TICKS_PER_YUGA.values())
 
 INITIAL_SOUL_COUNT: int = int(os.environ.get("BRAHMANDA_SOULS", "5"))
+ZERO_START: bool = os.environ.get("BRAHMANDA_ZERO_START", "false").lower() in ("true", "1", "yes")
 SOUL_MEMORY_SIZE: int = 10
 
 # ---------------------------------------------------------------------------
@@ -157,6 +158,7 @@ KARMA_ACTIONS: dict[str, int] = {
     "hoard": -5,
     "destroy": -8,
     "neutral": 0,
+    "emulate": 1,
 }
 
 KARMA_DECAY_BASE_RATE: float = 0.02  # baseline, scaled by entropy/yuga/vices
@@ -173,6 +175,7 @@ SAMSARA_KARMA_RANGES: dict[LokaID, tuple[int, int]] = {
 SOUL_ACTIONS: list[str] = [
     "cooperate", "trade", "create", "meditate", "share", "teach",
     "fight", "deceive", "steal", "hoard", "explore", "neutral",
+    "emulate",
 ]
 
 # ---------------------------------------------------------------------------
@@ -275,6 +278,12 @@ LAWS: dict[str, float] = {
     "shiva_entropy_density_divisor": 10,
     "shiva_decay_threshold": 0.6,
     "shiva_decay_rate": 0.05,
+
+    # Follower/Leader dynamics
+    "emulation_observe_radius": 1.0,         # how much of successful souls' info is visible
+    "emulation_success_threshold": 0.3,      # min influence/karma ratio to be seen as role model
+    "emulation_loyalty_decay": 0.1,          # per-tick decay of emulation loyalty
+    "emulation_influence_boost": 0.05,       # influence gain for being emulated
 
     # Vishnu
     "vishnu_cooldown": 20,

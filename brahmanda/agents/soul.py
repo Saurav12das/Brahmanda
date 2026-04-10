@@ -40,6 +40,32 @@ CRITICAL: Respond with ONLY a JSON object. No markdown, no explanation, no backt
 """
 
 
+def _build_role_model_section(rendered_view: dict) -> str:
+    """Build the role models section showing thriving souls the agent can observe."""
+    role_models = rendered_view.get("role_models", [])
+    if not role_models:
+        return ""
+
+    lines = ["\nSouls who are thriving (you can observe their strategies):"]
+    for rm in role_models:
+        parts = [f"  - {rm['name']}"]
+        if "karma" in rm:
+            parts.append(f"karma:{rm['karma']}")
+        if "resources" in rm:
+            parts.append(f"resources:{rm['resources']}")
+        if "last_strategy" in rm:
+            parts.append(f"last did: {rm['last_strategy']}")
+        if "followers" in rm:
+            parts.append(f"({rm['followers']} followers)")
+        lines.append(" | ".join(parts))
+
+    emulating = rendered_view.get("your_emulating")
+    if emulating:
+        lines.append(f"  >> You are currently emulating {emulating}.")
+
+    return "\n".join(lines)
+
+
 def _vice_intensity(value: float) -> str:
     if value >= 0.8: return "OVERWHELMING"
     if value >= 0.6: return "strong"
@@ -118,10 +144,12 @@ Nearby souls:
 {nearby_desc}
 
 Your inner state: {hope_desc}
-
+{_build_role_model_section(rendered_view)}
 Available actions: {', '.join(SOUL_ACTIONS)}
+  emulate = observe a thriving soul and copy their strategy (choose emulate + their name as target)
 
-What do you do? Let your vices compete with your virtues. Be honest about what you WANT, not just what is right."""
+What do you do? Let your vices compete with your virtues. Be honest about what you WANT, not just what is right.
+You can forge your own path, or emulate someone who is thriving. There is no shame in learning from the strong — or in being the one others learn from."""
 
 
 def _parse_soul_response(response_text: str) -> dict:
@@ -319,6 +347,20 @@ def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
         weights["deceive"] = weights.get("deceive", 0) + int(5 * despair_mult)
         weights["steal"] = weights.get("steal", 0) + int(4 * despair_mult)
 
+    # Emulation tendency — souls with low ahamkara (ego) are more likely to follow
+    # Souls with high ahamkara prefer to forge their own path (lead)
+    role_models = rendered_view.get("role_models", [])
+    if role_models:
+        # Low ego + low resources = more likely to emulate (pragmatic survival)
+        emulate_pull = max(0, (1.0 - ahamkara) * 5)
+        if soul.resources < 15:
+            emulate_pull += 3  # resource pressure makes following attractive
+        if hope < 0:
+            emulate_pull += 2  # despair makes copying a proven path appealing
+        weights["emulate"] = int(emulate_pull)
+    else:
+        weights["emulate"] = 0  # no one to emulate
+
     # Desire-based adjustments (virtuous pull)
     for desire in soul.desires:
         d = desire.lower()
@@ -344,6 +386,17 @@ def _deterministic_decision(soul: SoulState, rendered_view: dict) -> dict:
         chosen = "neutral"
     else:
         chosen = random.choices(actions, weights=w, k=1)[0]
+
+    # If emulate was chosen, target the top role model
+    if chosen == "emulate" and role_models:
+        emulate_target = role_models[0].get("name", target)
+        return {
+            "action": "emulate",
+            "target": emulate_target,
+            "reasoning": f"[deterministic] low ego ({ahamkara:.2f}) — copying {emulate_target}'s proven strategy",
+            "dialogue": None,
+            "raw": "[fallback: emulation-driven]",
+        }
 
     # Map "fight" to justified/unjustified
     dominant_vice = max({"krodha": krodha, "ahamkara": ahamkara, "lobha": lobha}, key=lambda x: {"krodha": krodha, "ahamkara": ahamkara, "lobha": lobha}[x])

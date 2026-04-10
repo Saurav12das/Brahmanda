@@ -11,7 +11,7 @@ import json
 import random
 import re
 
-from brahmanda.config import DEFAULT_LOKA, INITIAL_SOUL_COUNT, LAWS, TRINITY_MODEL, LokaID
+from brahmanda.config import DEFAULT_LOKA, INITIAL_SOUL_COUNT, LAWS, TRINITY_MODEL, ZERO_START, LokaID
 from brahmanda.db.models import Event, Klesha, SoulState, _uid
 from brahmanda.engine.maya import Maya
 from brahmanda.engine.potential import assign_potential
@@ -42,11 +42,59 @@ Respond with ONLY a JSON array. No other text.
 """
 
 
+def _zero_start_souls(count: int) -> list[SoulState]:
+    """Create souls with truly identical starting conditions.
+
+    Every soul begins at absolute zero: same vices, same karma, same hope,
+    same resources, same prana, no desires beyond survival, no skills,
+    no innate potential. All differentiation must emerge from their own
+    choices and environmental interactions.
+    """
+    # Simple Sanskrit-inspired ordinal names — identity without personality
+    names = [
+        "Pratham", "Dvitiya", "Tritiya", "Chaturtha", "Panchama",
+        "Shashtha", "Saptama", "Ashtama", "Navama", "Dashama",
+        "Ekadasha", "Dvadasha", "Trayodasha", "Chaturdasha", "Panchadasha",
+        "Shodasha", "Saptadasha", "Ashtadasha", "Navadasha", "Vimsha",
+    ]
+    souls = []
+    for i in range(count):
+        name = names[i % len(names)] if i < len(names) else f"Atman-{i + 1}"
+        souls.append(SoulState(
+            id=_uid(),
+            name=name,
+            karma=0,
+            desires=["survive", "become the best"],
+            skills=[],
+            loka=DEFAULT_LOKA,
+            resources=10,
+            potential=0.0,       # no innate advantage
+            klesha=Klesha(       # perfectly neutral vices — equal inner battlefield
+                kama=0.5,
+                krodha=0.5,
+                lobha=0.5,
+                moha=0.5,
+                ahamkara=0.5,
+            ),
+            hope=0.0,            # neither hopeful nor despairing
+        ))
+    return souls
+
+
 async def create_initial_souls(
     client: LLMClient,
     count: int = INITIAL_SOUL_COUNT,
 ) -> list[SoulState]:
-    """Ask Brahma to generate the initial population."""
+    """Ask Brahma to generate the initial population.
+
+    If ZERO_START is enabled, all souls begin with identical stats —
+    differentiation emerges purely from choices and environment.
+    """
+    if ZERO_START:
+        from rich.console import Console
+        Console().print("  [bold bright_cyan]ZERO START MODE[/bold bright_cyan] — all souls begin equal. Evolution decides.")
+        return _zero_start_souls(count)
+
     try:
         response = await client.generate(
             model=TRINITY_MODEL,

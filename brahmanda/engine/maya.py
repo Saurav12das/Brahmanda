@@ -69,6 +69,24 @@ class Maya:
 
         resource_view = loka_state.resources if truth_vis > 0.3 else "unknown"
 
+        # Role models — souls can observe who is thriving (the natural basis for emulation)
+        # Sorted by a composite success score: karma + resources + influence
+        role_models = []
+        for other in visible_souls:
+            success_score = other.karma * 0.4 + other.resources * 0.3 + other.influence * 100 * 0.3
+            if success_score > LAWS.get("emulation_success_threshold", 0.3) * 100:
+                rm_view: dict = {"name": other.name, "id": other.id, "success_hint": round(success_score, 1)}
+                if other.last_action:
+                    rm_view["last_strategy"] = other.last_action
+                if other.times_emulated > 0:
+                    rm_view["followers"] = other.times_emulated
+                if truth_vis > 0.5:
+                    rm_view["karma"] = other.karma
+                    rm_view["resources"] = other.resources
+                role_models.append(rm_view)
+        role_models.sort(key=lambda x: x["success_hint"], reverse=True)
+        role_models = role_models[:3]  # soul can only observe top 3
+
         # Yuga-amplified vices
         vice_amplifier = {
             YugaType.SATYA: LAWS["maya_vice_satya"], YugaType.TRETA: LAWS["maya_vice_treta"],
@@ -146,6 +164,8 @@ class Maya:
             "your_vices": amplified_vices,
             "your_potential": round(soul.potential, 3) if abs(soul.potential) > 0.3 else None,
             "manifested_as": soul.potential_manifested,
+            "role_models": role_models,
+            "your_emulating": self.souls[soul.emulating].name if soul.emulating and soul.emulating in self.souls else None,
             "your_hope": round(soul.hope, 2),
             "hope_status": (
                 "COMPLACENT — striving feels unnecessary" if soul.hope > 0.7 else
@@ -231,6 +251,24 @@ class Maya:
         elif action_type == "hoard":
             soul.resources += 1
 
+        elif action_type == "emulate" and target_id and target_id in self.souls:
+            target = self.souls[target_id]
+            # Copy the target's last successful action (if any)
+            copied_action = target.last_action
+            soul.emulating = target_id
+            target.times_emulated += 1
+            # Emulating grants the emulator a small portion of the target's strategy benefit
+            if copied_action in ("cooperate", "trade", "create", "share", "teach", "meditate"):
+                soul.resources += 1  # modest gain from copying a proven strategy
+                soul.prana = min(100.0, soul.prana + 0.5)
+            elif copied_action in ("steal", "hoard", "deceive"):
+                soul.resources += 2  # copying dark strategies — short-term gain
+            else:
+                soul.resources += 1
+            # The emulated soul gains influence (they're becoming a model)
+            target.influence = min(1.0, target.influence + LAWS.get("emulation_influence_boost", 0.05))
+            self._update_relationship(soul, target_id, 1)  # follower has mild positive feeling
+
         elif action_type == "deceive" and target_id and target_id in self.souls:
             target = self.souls[target_id]
             soul.resources += 4
@@ -241,6 +279,9 @@ class Maya:
             soul.prana = min(100.0, soul.prana + prana_stolen)
             if YUGA_PARAMS[self.yuga]["truth_visibility"] > 0.5:
                 self._update_relationship(target, soul.id, -6)
+
+        # Track last action for emulation visibility
+        soul.last_action = action_type
 
         # Add to soul memory
         memory = f"Tick {self.tick}: I chose to {action_type}"

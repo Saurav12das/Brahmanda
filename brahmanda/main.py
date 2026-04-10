@@ -16,7 +16,7 @@ import sys
 from rich.console import Console
 from rich.panel import Panel
 
-from brahmanda.config import ACTIVE_LOKAS, LLM_BACKEND, ANTHROPIC_API_KEY, INITIAL_SOUL_COUNT
+from brahmanda.config import ACTIVE_LOKAS, LLM_BACKEND, ANTHROPIC_API_KEY, INITIAL_SOUL_COUNT, ZERO_START
 from brahmanda.llm import create_client
 from brahmanda.agents.asura import AsuraEngine
 from brahmanda.agents.deva import DevaCouncil
@@ -71,11 +71,19 @@ async def run_universe() -> None:
     # PHASE 1: CREATION — Brahma exhales
     # ---------------------------------------------------------------
     console.print()
-    console.print(Panel(
-        "[bold bright_yellow]OM[/bold bright_yellow]\n"
-        "Brahma opens his eyes. The universe stirs.",
-        title="BRAHMANDA", border_style="bright_yellow", width=60,
-    ))
+    if ZERO_START:
+        console.print(Panel(
+            "[bold bright_cyan]OM — ZERO START[/bold bright_cyan]\n"
+            "All souls begin equal. No gifts, no curses, no destiny.\n"
+            "Only choices and consequences. Evolution will decide.",
+            title="BRAHMANDA", border_style="bright_cyan", width=60,
+        ))
+    else:
+        console.print(Panel(
+            "[bold bright_yellow]OM[/bold bright_yellow]\n"
+            "Brahma opens his eyes. The universe stirs.",
+            title="BRAHMANDA", border_style="bright_yellow", width=60,
+        ))
 
     souls = await create_initial_souls(client, INITIAL_SOUL_COUNT)
     for soul in souls:
@@ -285,6 +293,20 @@ async def run_universe() -> None:
         console.print("  [bold]Most common actions:[/bold]")
         for action, count in pattern_report.dominant_actions:
             console.print(f"    {action}: {count}")
+
+    # Leader/follower dynamics report
+    if pattern_report.leaders:
+        console.print()
+        console.print("  [bold]EMERGENT LEADERS (most emulated):[/bold]")
+        for leader_name, emulated_count, follower_count in pattern_report.leaders:
+            console.print(f"    {leader_name}: emulated {emulated_count} times, {follower_count} active followers")
+
+    if pattern_report.followers:
+        console.print("  [bold]EMERGENT FOLLOWERS (most frequently emulating):[/bold]")
+        for follower_name, target_name in pattern_report.followers:
+            console.print(f"    {follower_name} → following {target_name}")
+
+    console.print(f"  Emulation rate: {pattern_report.emulation_rate:.1%}")
 
     # Signature analysis
     sig_report = signature_detector.analyze()

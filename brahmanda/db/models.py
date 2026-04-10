@@ -63,6 +63,9 @@ class SoulState(BaseModel):
     ideology: str | None = None           # belief system adopted from teaching/culture
     influence: float = 0.0                # power/dominance over others (0.0-1.0)
     hope: float = 0.0                    # -1.0 (despair) to +1.0 (hope), contagious
+    emulating: str | None = None          # soul_id currently being emulated (follower)
+    times_emulated: int = 0               # how many times OTHER souls chose to emulate this one
+    last_action: str | None = None        # last action taken (visible to potential followers)
     is_avatar: bool = False
     avatar_mission: str | None = None
 

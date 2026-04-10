@@ -244,6 +244,8 @@ class CivilizationEngine:
                 entry = f"Legend: {event.data.get('soul', '?')} became {event.data.get('manifestation', '?')}"
             elif event.event_type == "emergent_innovation":
                 entry = f"Invention passed down: {event.data.get('invention', '?')}"
+            elif event.event_type == "leader_emerged":
+                entry = f"The way of {event.data.get('leader', '?')}: others followed their path of {event.data.get('last_strategy', 'unknown')}"
 
             if entry and entry not in loka.akashic_memory:
                 loka.akashic_memory.append(entry)
@@ -289,6 +291,57 @@ class CivilizationEngine:
         return events
 
     # ------------------------------------------------------------------
+    # Emulation Dynamics — emergent leader/follower hierarchy
+    # ------------------------------------------------------------------
+    def apply_emulation_dynamics(self, tick: int, loka: LokaState, souls: list[SoulState]) -> list[Event]:
+        """Track and evolve the emergent leader/follower hierarchy.
+
+        This doesn't prescribe who leads or follows — it observes patterns
+        that have already emerged from soul decisions and applies natural
+        consequences: leaders gain influence, stale emulation bonds decay.
+        """
+        events = []
+        if len(souls) < 2:
+            return events
+
+        # --- Emulation loyalty decay: followers may drift away ---
+        decay_rate = LAWS.get("emulation_loyalty_decay", 0.1)
+        for soul in souls:
+            if soul.emulating:
+                # If the soul hasn't emulated recently (last action wasn't emulate),
+                # the bond weakens and eventually breaks
+                if soul.last_action != "emulate":
+                    if random.random() < decay_rate:
+                        soul.emulating = None  # bond broken — soul goes independent
+
+        # --- Detect emergent leaders (most emulated) ---
+        soul_map = {s.id: s for s in souls}
+        leader_ids = sorted(
+            [s.id for s in souls if s.times_emulated > 0],
+            key=lambda sid: soul_map[sid].times_emulated,
+            reverse=True,
+        )
+
+        # Log significant leadership emergence
+        for lid in leader_ids[:3]:
+            leader = soul_map[lid]
+            follower_count = sum(1 for s in souls if s.emulating == lid)
+            if follower_count >= 2 and leader.times_emulated >= 3:
+                events.append(Event(
+                    tick=tick, event_type="leader_emerged", loka=loka.id,
+                    data={
+                        "leader": leader.name,
+                        "times_emulated": leader.times_emulated,
+                        "active_followers": follower_count,
+                        "influence": round(leader.influence, 2),
+                        "last_strategy": leader.last_action,
+                    },
+                    description=f"{leader.name} emerges as a leader — {follower_count} souls follow their path",
+                ))
+
+        return events
+
+    # ------------------------------------------------------------------
     # Run all civilization systems for a loka
     # ------------------------------------------------------------------
     def process_loka(
@@ -303,6 +356,7 @@ class CivilizationEngine:
         events.extend(self.apply_ideology_spread(tick, souls))
         events.extend(self.apply_hope_entropy_interaction(loka, souls))
         events.extend(self.apply_power_dynamics(tick, loka, souls))
+        events.extend(self.apply_emulation_dynamics(tick, loka, souls))
 
         # Update Akashic Memory with significant events
         self.update_akashic_memory(tick, loka, souls, events)

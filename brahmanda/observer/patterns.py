@@ -21,10 +21,13 @@ class PatternReport:
     loka_migrations: list[dict] = field(default_factory=list)
     cooperation_rate: float = 0.0
     deception_rate: float = 0.0
+    emulation_rate: float = 0.0
     dominant_actions: list[tuple[str, int]] = field(default_factory=list)
     emergent_groups: list[list[str]] = field(default_factory=list)
     avg_hope: float = 0.0
     hope_distribution: dict[str, int] = field(default_factory=dict)
+    leaders: list[tuple[str, int, int]] = field(default_factory=list)    # (name, times_emulated, active_followers)
+    followers: list[tuple[str, str]] = field(default_factory=list)       # (follower_name, leader_name)
 
 
 class PatternDetector:
@@ -121,6 +124,21 @@ class PatternDetector:
             report.dominant_actions = counts.most_common(5)
             report.cooperation_rate = counts.get("cooperate", 0) / max(1, total)
             report.deception_rate = counts.get("deceive", 0) / max(1, total)
+            report.emulation_rate = counts.get("emulate", 0) / max(1, total)
+
+        # Leader/follower dynamics — who emerged as models vs followers
+        emulated_souls = sorted(
+            [(s.name, s.times_emulated, sum(1 for o in living.values() if o.emulating == sid))
+             for sid, s in living.items() if s.times_emulated > 0],
+            key=lambda x: x[1], reverse=True,
+        )
+        report.leaders = emulated_souls[:5]
+
+        report.followers = [
+            (s.name, living[s.emulating].name)
+            for s in living.values()
+            if s.emulating and s.emulating in living
+        ]
 
         # Emergent groups (connected components of positive relationships)
         report.emergent_groups = self._find_groups(living)

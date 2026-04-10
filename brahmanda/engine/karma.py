@@ -191,6 +191,9 @@ class KarmaEngine:
         if past_life_echo:
             soul.memories.insert(0, past_life_echo)
         soul.relationships = {}
+        soul.emulating = None          # fresh start — no allegiance carries over
+        # times_emulated persists — reputation echoes across lives
+        soul.last_action = None
         soul.is_avatar = False
         soul.avatar_mission = None
         # Hope carries over with decay and mutation
@@ -234,6 +237,7 @@ class KarmaEngine:
             "hoard": ["hoard", "accumulate", "stockpile", "gather", "amass", "collect greedily"],
             "explore": ["explore", "wander", "travel", "search", "discover", "venture", "move"],
             "neutral": ["neutral", "observe", "wait", "rest", "nothing", "idle", "watch", "do nothing"],
+            "emulate": ["emulate", "follow", "copy", "imitate", "mimic", "learn from", "model after"],
         }
         for action_type, keywords in SYNONYMS.items():
             for kw in keywords:
