@@ -24,6 +24,7 @@ import random
 from brahmanda.config import LAWS, LOKA_CONFIG, LokaID, YugaType
 from brahmanda.db.models import Event, Klesha, LokaState, SoulState, _uid
 from brahmanda.engine.potential import assign_potential
+from brahmanda.engine.propagation import compute_propagation_factor, evaluate_name_made
 
 
 # ---------------------------------------------------------------------------
@@ -204,9 +205,16 @@ def process_love_generation(
             if affinity > LAWS["atman_love_bond_threshold"] and mutual > LAWS["atman_love_bond_threshold"]:
                 bonded_pairs.append((soul, other))
 
+    # Sristi Niyama — propagation is conditional on souls proving themselves
+    avg_knowledge = sum(
+        maya_loka.knowledge for maya_loka in [loka]
+    ) / 1.0  # single loka context
+    propagation_factor = compute_propagation_factor(all_souls, avg_knowledge)
+    effective_birth_chance = LAWS["atman_birth_chance"] * propagation_factor
+
     for parent_a, parent_b in bonded_pairs:
-        # 2% chance per tick for a bonded pair to create new life
-        if random.random() > LAWS["atman_birth_chance"]:
+        # Birth chance modulated by propagation factor (decays as souls "make their name")
+        if random.random() > effective_birth_chance:
             continue
 
         # Resource check — need enough resources to sustain a new soul
@@ -256,9 +264,10 @@ def process_love_generation(
                 "child": child.name, "parent_a": parent_a.name,
                 "parent_b": parent_b.name, "potential": child.potential,
                 "dominant_vice": child.klesha.dominant,
+                "propagation_factor": round(propagation_factor, 3),
             },
             description=f"♥ New soul born: {child.name} — child of {parent_a.name} and {parent_b.name} "
-                        f"(potential={child.potential:+.3f})",
+                        f"(potential={child.potential:+.3f}, propagation={propagation_factor:.2f})",
         ))
 
     return events
@@ -378,10 +387,12 @@ def process_atman(
     # Love and generation
     events.extend(process_love_generation(tick, loka, souls, all_souls))
 
-    # Fulfillment check + alienation
+    # Fulfillment check + alienation + propagation name tracking
     for soul in souls:
         fulfillment = calculate_fulfillment(soul, loka, all_souls)
         events.extend(check_alienation(tick, soul, fulfillment))
+        # Sristi Niyama: check if this soul has "made their name"
+        evaluate_name_made(soul)
 
     # Hope group correction — prevent runaway spirals
     if souls:

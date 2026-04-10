@@ -283,4 +283,16 @@ LAWS: dict[str, float] = {
     "vishnu_avatar_karma": 100,
     "vishnu_avatar_resources": 50,
     "vishnu_sustainability_threshold": 5,
+
+    # Sristi Niyama — Soul Propagation Law
+    # Propagation is conditional: starts with a primordial pair, birth rate
+    # decays as more souls "make their name" (prove themselves). Once enough
+    # souls have achieved recognition, the drive to create new life diminishes.
+    "propagation_proven_threshold": 0.6,       # fraction of ever-lived souls that must "make name" to slow births
+    "propagation_min_factor": 0.05,            # floor — propagation never fully stops
+    "propagation_knowledge_ceiling": 50.0,     # loka knowledge level where propagation peaks are dampened
+    "propagation_influence_threshold": 0.3,    # influence level to count as "name made"
+    "propagation_karma_threshold": 40,         # |karma| threshold to count as "name made"
+    "propagation_potential_counts": True,       # manifested potential counts as "name made"
+    "propagation_decay_steepness": 3.0,        # sigmoid steepness — higher = sharper cutoff
 }

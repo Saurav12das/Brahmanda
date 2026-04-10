@@ -130,6 +130,61 @@ async def spawn_new_soul(
     return None
 
 
+# ---------------------------------------------------------------------------
+# Primordial Pair — The First Two
+# ---------------------------------------------------------------------------
+def create_primordial_pair() -> list[SoulState]:
+    """Create Purusha and Prakriti — the cosmic masculine and feminine.
+
+    Like all mythology, it started with two. From this pair, all other
+    souls descend through love. They start deeply bonded to each other.
+    """
+    purusha = SoulState(
+        id=_uid(),
+        name="Purusha",
+        karma=10,
+        loka=DEFAULT_LOKA,
+        alive=True,
+        resources=15,
+        prana=100.0,
+        potential=assign_potential(),
+        desires=["seek knowledge", "build legacy", "protect the weak"],
+        skills=["teaching", "strategy"],
+        klesha=Klesha(
+            kama=0.4, krodha=0.3, lobha=0.2, moha=0.6, ahamkara=0.5,
+        ),
+        hope=0.4,
+        is_primordial=True,
+    )
+
+    prakriti = SoulState(
+        id=_uid(),
+        name="Prakriti",
+        karma=10,
+        loka=DEFAULT_LOKA,
+        alive=True,
+        resources=15,
+        prana=100.0,
+        potential=assign_potential(),
+        desires=["create beauty", "find love", "uncover truth"],
+        skills=["healing", "crafting"],
+        klesha=Klesha(
+            kama=0.5, krodha=0.2, lobha=0.3, moha=0.7, ahamkara=0.3,
+        ),
+        hope=0.5,
+        is_primordial=True,
+    )
+
+    # They start deeply bonded — mutual love from the beginning
+    purusha.relationships[prakriti.id] = 30
+    prakriti.relationships[purusha.id] = 30
+
+    purusha.memories.append("I am the first. Prakriti is beside me. Together we begin everything.")
+    prakriti.memories.append("I am the first. Purusha is beside me. From us, all life will flow.")
+
+    return [purusha, prakriti]
+
+
 def _fallback_souls(count: int) -> list[SoulState]:
     """Deterministic fallback if LLM is unavailable."""
     names = [

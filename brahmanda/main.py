@@ -31,7 +31,8 @@ from brahmanda.engine.maya import Maya
 from brahmanda.observer import logger as cosmic_logger
 from brahmanda.observer.patterns import PatternDetector
 from brahmanda.observer.signatures import SignatureDetector
-from brahmanda.trinity.brahma import create_initial_souls
+from brahmanda.trinity.brahma import create_initial_souls, create_primordial_pair
+from brahmanda.engine.propagation import get_propagation_stats, compute_propagation_factor
 from brahmanda.trinity.shiva import ShivaProtocol
 from brahmanda.trinity.vishnu import VishnuProtocol
 
@@ -77,17 +78,32 @@ async def run_universe() -> None:
         title="BRAHMANDA", border_style="bright_yellow", width=60,
     ))
 
-    souls = await create_initial_souls(client, INITIAL_SOUL_COUNT)
-    for soul in souls:
+    # Sristi Niyama: Start with the primordial pair (Purusha & Prakriti)
+    primordial = create_primordial_pair()
+    for soul in primordial:
         maya.register_soul(soul)
+
+    console.print("  [bold bright_cyan]Primordial pair created: Purusha & Prakriti[/bold bright_cyan]")
+    console.print("  [dim]From two, all life will flow — propagation is conditional.[/dim]")
+
+    # If INITIAL_SOUL_COUNT > 2, Brahma also creates additional first-generation souls
+    extra_count = max(0, INITIAL_SOUL_COUNT - 2)
+    extra_souls = []
+    if extra_count > 0:
+        extra_souls = await create_initial_souls(client, extra_count)
+        for soul in extra_souls:
+            maya.register_soul(soul)
+
+    souls = primordial + extra_souls
 
     maya.loka_manager.apply_yuga_resources(maya.yuga)
     cosmic_logger.log_creation_banner(len(souls))
 
     creation_event = Event(
         tick=0, event_type="creation",
-        data={"soul_count": len(souls), "soul_names": [s.name for s in souls]},
-        description=f"Universe created with {len(souls)} souls",
+        data={"soul_count": len(souls), "soul_names": [s.name for s in souls],
+              "primordial_pair": [primordial[0].name, primordial[1].name]},
+        description=f"Universe created with {len(souls)} souls (primordial pair + {extra_count} first-generation)",
     )
     records.log_event(creation_event)
 
@@ -96,7 +112,8 @@ async def run_universe() -> None:
         records.log_soul_state(0, soul)
         k = soul.klesha
         dominant = k.dominant
-        console.print(f"  [bold]{soul.name}[/bold] — karma:{soul.karma}, hope:{soul.hope:+.2f}, desires:{soul.desires}, dominant vice: [red]{dominant}[/red] ({getattr(k, dominant):.2f})")
+        tag = " [bright_cyan](primordial)[/bright_cyan]" if soul.is_primordial else ""
+        console.print(f"  [bold]{soul.name}[/bold]{tag} — karma:{soul.karma}, hope:{soul.hope:+.2f}, desires:{soul.desires}, dominant vice: [red]{dominant}[/red] ({getattr(k, dominant):.2f})")
 
     # ---------------------------------------------------------------
     # PHASE 2: MAIN LOOP — the heartbeat of the universe
@@ -230,6 +247,18 @@ async def run_universe() -> None:
             pattern_detector.record_karma_snapshot(maya.souls)
             cosmic_logger.log_universe_status(snapshot)
 
+            # Sristi Niyama: log propagation status
+            prop_stats = get_propagation_stats(maya.souls)
+            avg_knowledge = sum(
+                maya.loka_manager.get_loka(lid).knowledge for lid in ACTIVE_LOKAS
+            ) / len(ACTIVE_LOKAS)
+            prop_factor = compute_propagation_factor(maya.souls, avg_knowledge)
+            console.print(
+                f"  [dim]Propagation: {prop_stats['proven_souls']}/{prop_stats['total_souls_ever']} "
+                f"souls proved ({prop_stats['proven_ratio']:.0%}) — "
+                f"birth factor: {prop_factor:.2f}[/dim]"
+            )
+
             # Save all soul states
             for soul in maya.souls.values():
                 records.log_soul_state(tick, soul)
@@ -330,6 +359,16 @@ async def run_universe() -> None:
         console.print("  [bold bright_yellow]SIGNATURES DETECTED:[/bold bright_yellow]")
         for sig in sig_report.signatures_detected:
             console.print(f"    → {sig}")
+
+    # Propagation report
+    prop_stats = get_propagation_stats(maya.souls)
+    console.print()
+    console.print(Panel("[bold]SRISTI NIYAMA — Soul Propagation Report[/bold]", border_style="bright_cyan"))
+    console.print(f"  Total souls ever created: {prop_stats['total_souls_ever']}")
+    console.print(f"  Souls who proved themselves: {prop_stats['proven_souls']} ({prop_stats['proven_ratio']:.0%})")
+    console.print(f"  Primordial souls: {prop_stats['primordial_count']}")
+    console.print(f"  Max samsara cycles: {prop_stats['max_samsara_cycle']}")
+    console.print(f"  Proven threshold: {prop_stats['threshold']:.0%}")
 
     # ---------------------------------------------------------------
     # Cleanup

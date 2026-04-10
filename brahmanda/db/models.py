@@ -65,6 +65,8 @@ class SoulState(BaseModel):
     hope: float = 0.0                    # -1.0 (despair) to +1.0 (hope), contagious
     is_avatar: bool = False
     avatar_mission: str | None = None
+    name_made: bool = False               # has this soul "proved itself" (propagation gate tracker)
+    is_primordial: bool = False           # one of the original two (Purusha/Prakriti)
 
 
 # ---------------------------------------------------------------------------
